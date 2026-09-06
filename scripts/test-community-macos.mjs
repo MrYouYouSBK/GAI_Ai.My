@@ -70,6 +70,24 @@ try {
   await closeApp()
   assert.ok(readdirSync(join(target, '..')).some(name => name.startsWith('GAI AI.backup-')))
   console.log('PASS: corrupt archive rejected without modifying app; reinstall preserves backup')
+
+  // Execute the real updater from the installed Electron executable so its
+  // process.execPath resolves to the installed bundle, then let it quit/restart.
+  const updateDriver = join(root, 'update-driver.cjs')
+  writeFileSync(updateDriver, `
+    const { CommunityMacUpdater, sha256File } = require(${JSON.stringify(resolve('electron/community-updater.cjs'))});
+    const app = { getPath: () => ${JSON.stringify(root)}, getVersion: () => ${JSON.stringify(version)} };
+    const instance = new CommunityMacUpdater({ app, arch: ${JSON.stringify(arch)}, cacheDir: ${JSON.stringify(join(root, 'update-cache'))} });
+    if (!instance.community) throw new Error('Installed app did not opt into community updates');
+    const filePath = ${JSON.stringify(join(folder, archive))};
+    instance.downloaded = { filePath, version: ${JSON.stringify(version)}, sha256: sha256File(filePath) };
+    instance.spawnInstaller();
+  `)
+  run(join(target, 'Contents', 'MacOS', 'GAI AI'), [updateDriver], { env: { ...env, ELECTRON_RUN_AS_NODE: '1' } })
+  await assertLaunch()
+  await closeApp()
+  run('/usr/bin/codesign', ['--verify', '--deep', '--strict', target])
+  console.log('PASS: actual updater replaces installed bundle after exit and reopens app')
 } finally {
   await closeApp()
   rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 })

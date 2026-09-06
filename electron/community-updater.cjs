@@ -43,6 +43,15 @@ function selectReleaseAssets(release, arch) {
   return { version, zip, checksums }
 }
 
+function selectCommunityRelease(releases, arch) {
+  const compatible = (Array.isArray(releases) ? releases : []).filter(release => {
+    if (release.draft || release.prerelease || !/^community-v\d+\.\d+\.\d+$/.test(release.tag_name || '')) return false
+    try { selectReleaseAssets(release, arch); return true } catch { return false }
+  }).sort((a, b) => compareVersions(releaseVersion(b), releaseVersion(a)))
+  if (!compatible.length) throw new Error(`No published macOS ${arch} community update is available`)
+  return compatible[0]
+}
+
 function parseChecksumFile(text, filename) {
   for (const rawLine of String(text || '').split(/\r?\n/)) {
     const match = rawLine.trim().match(/^([a-f0-9]{64})\s+\*?(.+)$/i)
@@ -219,6 +228,7 @@ class CommunityMacUpdater extends EventEmitter {
     this.app = app
     this.repository = repository
     this.arch = arch === 'arm64' ? 'arm64' : 'x64'
+    this.community = communityBundle(findAppBundle(process.execPath))
     this.cacheDir = cacheDir || path.join(app.getPath('userData'), 'pending-update')
     this.autoDownload = true
     this.autoInstallOnAppQuit = true
@@ -232,8 +242,9 @@ class CommunityMacUpdater extends EventEmitter {
   async checkForUpdates() {
     this.emit('checking-for-update')
     try {
-      const endpoint = `https://api.github.com/repos/${this.repository}/releases/latest`
-      const release = JSON.parse((await requestBuffer(endpoint, { headers: this.headers })).toString('utf8'))
+      const endpoint = `https://api.github.com/repos/${this.repository}/releases${this.community ? '?per_page=30' : '/latest'}`
+      const response = JSON.parse((await requestBuffer(endpoint, { headers: this.headers })).toString('utf8'))
+      const release = this.community ? selectCommunityRelease(response, this.arch) : response
       const assets = selectReleaseAssets(release, this.arch)
       const info = { version: assets.version, releaseName: release.name || release.tag_name, releaseDate: release.published_at || release.created_at, releaseNotes: release.body || '', _assets: assets }
       if (release.draft || release.prerelease || compareVersions(info.version, this.app.getVersion()) <= 0) { this.emit('update-not-available', info); return { updateInfo: info } }
@@ -281,7 +292,7 @@ class CommunityMacUpdater extends EventEmitter {
     if (result.status !== 0) throw new Error(`Could not extract update: ${result.stderr || result.stdout || 'ditto failed'}`)
     const sourceBundle = findExtractedApp(stageDir)
     if (!sourceBundle) throw new Error('The verified update archive does not contain GAI AI.app')
-    const community = communityBundle(currentBundle)
+    const community = communityBundle(currentBundle) && communityBundle(sourceBundle)
     if (community) verifyCommunityMacUpdate(sourceBundle, currentBundle, this.downloaded.version, this.arch)
     else verifyTrustedMacUpdate(sourceBundle, currentBundle)
     return { currentBundle, sourceBundle, stageDir, community }
@@ -308,4 +319,4 @@ class CommunityMacUpdater extends EventEmitter {
   quitAndInstall() { this.spawnInstaller(); this.app.quit() }
 }
 
-module.exports = { CommunityMacUpdater, compareVersions, findAppBundle, normalizeVersion, parseChecksumFile, parseCodesignDetails, releaseVersion, selectReleaseAssets, sha256File, verifyTrustedMacUpdate, verifyCommunityMacUpdate, communityBundle }
+module.exports = { CommunityMacUpdater, compareVersions, findAppBundle, normalizeVersion, parseChecksumFile, parseCodesignDetails, releaseVersion, selectReleaseAssets, selectCommunityRelease, sha256File, verifyTrustedMacUpdate, verifyCommunityMacUpdate, communityBundle }
