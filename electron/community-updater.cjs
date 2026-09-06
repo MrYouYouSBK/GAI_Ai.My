@@ -133,6 +133,28 @@ function verifyTrustedMacUpdate(sourceBundle, currentBundle = null) {
   return { bundleId, teamIdentifier: signature.teamIdentifier }
 }
 
+function communityBundle(appBundle) {
+  try {
+    return checked('/usr/bin/plutil', ['-extract', 'GAICommunityDistribution', 'raw', '-o', '-', path.join(appBundle, 'Contents', 'Info.plist')]).trim() === 'true'
+  } catch { return false }
+}
+
+function verifyCommunityMacUpdate(sourceBundle, currentBundle, expectedVersion, arch) {
+  // Only an explicitly built community app may opt into community updates.
+  if (!communityBundle(currentBundle)) throw new Error('Current app has not opted into community distribution')
+  const current = inspectMacSignature(currentBundle)
+  if (current.teamIdentifier) throw new Error('A signed app cannot downgrade to community trust')
+  checked('/usr/bin/codesign', ['--verify', '--deep', '--strict', sourceBundle])
+  const plist = path.join(sourceBundle, 'Contents', 'Info.plist')
+  const field = name => checked('/usr/bin/plutil', ['-extract', name, 'raw', '-o', '-', plist]).trim()
+  if (field('CFBundleIdentifier') !== EXPECTED_BUNDLE_ID) throw new Error('Incorrect community update bundle identity')
+  if (!communityBundle(sourceBundle)) throw new Error('Incorrect community update channel')
+  if (field('CFBundleShortVersionString') !== expectedVersion) throw new Error('Incorrect community update version')
+  const machine = arch === 'arm64' ? 'arm64' : 'x86_64'
+  if (!checked('/usr/bin/file', ['-b', path.join(sourceBundle, 'Contents', 'MacOS', 'GAI AI')]).includes(machine)) throw new Error('Incorrect community update architecture')
+  return { bundleId: EXPECTED_BUNDLE_ID, community: true }
+}
+
 function requestBuffer(url, { headers = {}, redirects = 0, onProgress } = {}) {
   if (redirects > MAX_REDIRECTS) return Promise.reject(new Error('Too many download redirects'))
   return new Promise((resolve, reject) => {
@@ -249,6 +271,7 @@ class CommunityMacUpdater extends EventEmitter {
 
   prepareInstall() {
     if (!this.downloaded?.filePath || !fs.existsSync(this.downloaded.filePath)) throw new Error('No verified update has been downloaded')
+    if (sha256File(this.downloaded.filePath) !== this.downloaded.sha256) throw new Error('Downloaded update changed after verification')
     const currentBundle = findAppBundle(process.execPath)
     if (!currentBundle) throw new Error('Could not locate the running GAI AI.app bundle')
     const stageDir = path.join(this.cacheDir, `stage-${this.downloaded.version}`)
@@ -258,13 +281,19 @@ class CommunityMacUpdater extends EventEmitter {
     if (result.status !== 0) throw new Error(`Could not extract update: ${result.stderr || result.stdout || 'ditto failed'}`)
     const sourceBundle = findExtractedApp(stageDir)
     if (!sourceBundle) throw new Error('The verified update archive does not contain GAI AI.app')
-    verifyTrustedMacUpdate(sourceBundle, currentBundle)
-    return { currentBundle, sourceBundle, stageDir }
+    const community = communityBundle(currentBundle)
+    if (community) verifyCommunityMacUpdate(sourceBundle, currentBundle, this.downloaded.version, this.arch)
+    else verifyTrustedMacUpdate(sourceBundle, currentBundle)
+    return { currentBundle, sourceBundle, stageDir, community }
   }
 
   spawnInstaller() {
     if (this.installing) return true
-    const { currentBundle, sourceBundle, stageDir } = this.prepareInstall()
+    const { currentBundle, sourceBundle, stageDir, community } = this.prepareInstall()
+    if (community) {
+      const result = spawnSync('/usr/bin/xattr', ['-rd', 'com.apple.quarantine', sourceBundle], { encoding: 'utf8' })
+      if (result.status !== 0 && checked('/usr/bin/xattr', ['-lr', sourceBundle]).includes('com.apple.quarantine')) throw new Error('Could not prepare community update for launch')
+    }
     const backupBundle = `${currentBundle}.gai-backup-${Date.now()}`
     const scriptPath = path.join(this.cacheDir, 'install-verified-update.sh')
     const script = `#!/bin/sh\nset -u\npid=${process.pid}\nwhile kill -0 "$pid" 2>/dev/null; do sleep 0.2; done\ntarget=${quoteShell(currentBundle)}\nsource_app=${quoteShell(sourceBundle)}\nbackup=${quoteShell(backupBundle)}\nstage=${quoteShell(stageDir)}\nif ! mv "$target" "$backup"; then exit 20; fi\nif /usr/bin/ditto "$source_app" "$target" && /usr/bin/open "$target"; then\n  /bin/rm -rf "$backup" "$stage"\n  exit 0\nfi\n/bin/rm -rf "$target"\nmv "$backup" "$target"\n/usr/bin/open "$target"\nexit 21\n`
@@ -279,4 +308,4 @@ class CommunityMacUpdater extends EventEmitter {
   quitAndInstall() { this.spawnInstaller(); this.app.quit() }
 }
 
-module.exports = { CommunityMacUpdater, compareVersions, findAppBundle, normalizeVersion, parseChecksumFile, parseCodesignDetails, releaseVersion, selectReleaseAssets, sha256File, verifyTrustedMacUpdate }
+module.exports = { CommunityMacUpdater, compareVersions, findAppBundle, normalizeVersion, parseChecksumFile, parseCodesignDetails, releaseVersion, selectReleaseAssets, sha256File, verifyTrustedMacUpdate, verifyCommunityMacUpdate, communityBundle }

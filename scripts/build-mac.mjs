@@ -16,6 +16,8 @@ if (invalidArgs.length > 0) {
 const requestedArchs = args.filter((arg) => supportedArchs.has(arg));
 const archs = requestedArchs.length > 0 ? requestedArchs : ['x64', 'arm64'];
 const requireTrustedDistribution = process.env.GAI_REQUIRE_MAC_SIGNING === 'true';
+const communityDistribution = process.env.GAI_COMMUNITY_DISTRIBUTION === 'true';
+if (communityDistribution && requireTrustedDistribution) throw new Error('Choose one macOS distribution channel');
 
 if (requireTrustedDistribution) {
   const required = ['CSC_LINK', 'CSC_KEY_PASSWORD', 'APPLE_API_KEY', 'APPLE_API_KEY_ID', 'APPLE_API_ISSUER'];
@@ -69,5 +71,10 @@ for (const arch of archs) {
     'never',
     `--config.mac.notarize=${requireTrustedDistribution ? 'true' : 'false'}`,
   ];
+  if (communityDistribution) builderArgs.push(
+    '--config.mac.identity=-',
+    '--config.mac.hardenedRuntime=false',
+    '--config.mac.extendInfo.GAICommunityDistribution=true',
+  );
   run('node', builderArgs);
 }
