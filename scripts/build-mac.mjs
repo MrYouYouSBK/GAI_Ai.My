@@ -72,7 +72,7 @@ for (const arch of archs) {
     `--config.mac.notarize=${requireTrustedDistribution ? 'true' : 'false'}`,
   ];
   if (communityDistribution) builderArgs.push(
-    '--config.mac.identity=-',
+    '--config.afterPack=scripts/sign-community-macos.cjs',
     '--config.mac.hardenedRuntime=false',
     '--config.mac.extendInfo.GAICommunityDistribution=true',
   );
