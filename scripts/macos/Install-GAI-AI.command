@@ -62,7 +62,8 @@ plist="$source_app/Contents/Info.plist"
 
 # Only the verified GAI AI bundle is changed; system security settings stay enabled.
 /usr/bin/xattr -rd com.apple.quarantine "$source_app" 2>/dev/null || true
-if /usr/bin/xattr -lr "$source_app" | /usr/bin/grep -q com.apple.quarantine; then die 'Could not remove the downloaded-app quarantine attribute.'; fi
+attributes="$(/usr/bin/xattr -lr "$source_app")"
+if [[ "$attributes" == *com.apple.quarantine* ]]; then die 'Could not remove the downloaded-app quarantine attribute.'; fi
 /usr/bin/codesign --verify --deep --strict "$source_app"
 if /usr/bin/pgrep -u "$(id -u)" -x 'GAI AI' >/dev/null; then
   /usr/bin/osascript -e 'tell application id "com.mryouyousbk.gaiai" to quit'
