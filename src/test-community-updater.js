@@ -20,6 +20,10 @@ const release = {
 }
 assert.equal(selectReleaseAssets(release, 'arm64').zip.name, 'GAI-AI-3.2.0-mac-arm64.zip')
 assert.throws(() => selectReleaseAssets(release, 'x64'), /missing GAI-AI-3\.2\.0-mac-x64\.zip/)
+const newer = { ...release, tag_name: 'community-v3.3.1', assets: release.assets.map(a => ({ ...a, name: a.name.replace('3.2.0', '3.3.1') })) }
+assert.equal(updater.selectCommunityRelease([release, { ...newer, draft: true }, { ...newer, prerelease: true }], 'arm64'), release)
+assert.equal(updater.selectCommunityRelease([release, newer, { tag_name: 'community-v9.0.0', assets: [] }], 'arm64'), newer)
+assert.throws(() => updater.selectCommunityRelease([release, newer], 'x64'), /No published/)
 
 assert.deepEqual(parseCodesignDetails(`Authority=Developer ID Application: GAI AI (TEAM123456)\nAuthority=Developer ID Certification Authority\nTeamIdentifier=TEAM123456\n`), {
   teamIdentifier: 'TEAM123456',

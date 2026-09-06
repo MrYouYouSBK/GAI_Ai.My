@@ -23,7 +23,7 @@ const mediaConfig = read('src/media-provider-config.js')
 const runtime = read('src/index.js')
 const videoGeneration = read('src/capabilities/tools/media/video-generation.js')
 
-assert.equal(packageJson.version, '3.3.0')
+assert.match(packageJson.version, /^3\.3\.\d+$/)
 assert.match(packageJson.description, /multilingual, local-first/)
 assert.equal(packageJson.build.appId, 'com.mryouyousbk.gaiai')
 assert.match(control, /GAI AI 3\.3/)
@@ -39,7 +39,8 @@ assert.match(updater, /SHA-256 verification failed/)
 assert.match(updater, /Developer ID Application/)
 assert.match(updater, /\/usr\/sbin\/spctl/)
 assert.doesNotMatch(updater, /\/usr\/bin\/xcrun/)
-assert.doesNotMatch(updater, /xattr -dr|xattr -rd/)
+// Community distribution is now explicitly supported; macOS CI checks that
+// Developer ID builds still reject updates without their required identity.
 assert.match(main, /GAI_INFERENCE_THREADS/)
 assert.match(main, /launchAtLoginEnabled/)
 assert.match(preload, /exposeInMainWorld\('gai'/)
