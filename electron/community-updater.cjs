@@ -309,7 +309,13 @@ class CommunityMacUpdater extends EventEmitter {
     const scriptPath = path.join(this.cacheDir, 'install-verified-update.sh')
     const script = `#!/bin/sh\nset -u\npid=${process.pid}\nwhile kill -0 "$pid" 2>/dev/null; do sleep 0.2; done\ntarget=${quoteShell(currentBundle)}\nsource_app=${quoteShell(sourceBundle)}\nbackup=${quoteShell(backupBundle)}\nstage=${quoteShell(stageDir)}\nif ! mv "$target" "$backup"; then exit 20; fi\nif /usr/bin/ditto "$source_app" "$target" && /usr/bin/open "$target"; then\n  /bin/rm -rf "$backup" "$stage"\n  exit 0\nfi\n/bin/rm -rf "$target"\nmv "$backup" "$target"\n/usr/bin/open "$target"\nexit 21\n`
     fs.writeFileSync(scriptPath, script, { mode: 0o700 })
-    const child = spawn('/bin/sh', [scriptPath], { detached: true, stdio: 'ignore' })
+    const installerEnv = { ...process.env }
+    delete installerEnv.ELECTRON_RUN_AS_NODE
+    const logFd = fs.openSync(path.join(this.cacheDir, 'install.log'), 'a', 0o600)
+    let child
+    try {
+      child = spawn('/bin/sh', [scriptPath], { detached: true, stdio: ['ignore', logFd, logFd], env: installerEnv })
+    } finally { fs.closeSync(logFd) }
     child.unref()
     this.installing = true
     return true

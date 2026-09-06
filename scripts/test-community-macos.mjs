@@ -84,7 +84,11 @@ try {
     instance.spawnInstaller();
   `)
   run(join(target, 'Contents', 'MacOS', 'GAI AI'), [updateDriver], { env: { ...env, ELECTRON_RUN_AS_NODE: '1' } })
-  await assertLaunch()
+  try { await assertLaunch() } catch (error) {
+    const log = join(root, 'update-cache', 'install.log')
+    if (existsSync(log)) console.error(readFileSync(log, 'utf8'))
+    throw error
+  }
   await closeApp()
   run('/usr/bin/codesign', ['--verify', '--deep', '--strict', target])
   console.log('PASS: actual updater replaces installed bundle after exit and reopens app')

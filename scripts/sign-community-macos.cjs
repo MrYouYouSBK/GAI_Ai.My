@@ -32,10 +32,13 @@ module.exports = async context => {
     if (entitlements) args.push('--entitlements', path.resolve(entitlements))
     execFileSync('/usr/bin/codesign', [...args, file], { stdio: 'inherit' })
   }
-  for (const file of binaries) sign(file)
-  // Children precede their containing bundles; helpers receive the same JIT
-  // entitlements used by the existing Electron distribution.
-  for (const file of bundles) sign(file, file.endsWith('.app') ? 'build/entitlements.mac.inherit.plist' : null)
+  // Signing a framework's principal executable also seals its containing
+  // framework. On Intel, crashpad starts unsigned, so sign all deeper children
+  // first and prefer helper bundles over the outer executable at equal depth.
+  const bundleSet = new Set(bundles)
+  const targets = [...binaries, ...bundles].sort((a, b) =>
+    b.split(path.sep).length - a.split(path.sep).length || Number(bundleSet.has(b)) - Number(bundleSet.has(a)))
+  for (const file of targets) sign(file, bundleSet.has(file) && file.endsWith('.app') ? 'build/entitlements.mac.inherit.plist' : null)
   sign(app, 'build/entitlements.mac.plist')
   execFileSync('/usr/bin/codesign', ['--verify', '--deep', '--strict', '--verbose=2', app], { stdio: 'inherit' })
   console.log(`[community-sign] Verified ${binaries.length} Mach-O files and ${bundles.length + 1} bundles`)
