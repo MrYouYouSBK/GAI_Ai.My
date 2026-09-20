@@ -9,6 +9,7 @@
 // PTT 模式通过 core.pttHolding 在本策略之上「叠加」（按住时屏蔽自动发送）。
 
 import { BARGEIN_THRESHOLD } from './voice-core.js';
+import { readVoiceSilenceMs } from './legacy-compat.js';
 
 // ─── 打断检测参数 ───
 const BARGEIN_WARMUP_MS = 600; // TTS 开始后前 600ms 不检测（等 AEC 适应）
@@ -33,10 +34,7 @@ export function createContinuousPolicy(core, { getAutoSend }) {
   // ─── 自动发送状态 ───
   // 「攒成一条，说完再发」：只有转写文本停更足够久才发。底噪/呼吸/键盘声不刷新计时。
   // 延迟可经 localStorage 调，默认 2s（比一次思考停顿长，比一句话间隔长）。
-  const SILENCE_SEND_MS = (() => {
-    const v = parseInt(localStorage.getItem('bailongma-voice-silence-ms') || '', 10);
-    return Number.isFinite(v) && v >= 800 ? v : 2000;
-  })();
+  const SILENCE_SEND_MS = readVoiceSilenceMs();
   let autoSendTimer = null;
   // 最近一次「转写文本发生变化」的时间戳。自动发送只看它；麦克风音量不参与重置。
   let lastTranscriptActivityTs = 0;
