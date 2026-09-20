@@ -44,6 +44,18 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
+      - name: Syntax-check Project S trust surfaces
+        run: |
+          node --check src/capabilities/permission-center.js
+          node --check src/capabilities/action-receipt.js
+          node --check src/capabilities/tool-audit.js
+          node --check src/api/routes/settings.js
+          node --check src/ui/brain-ui/gai-control-center.js
+          node --check src/ui/brain-ui/legacy-compat.js
+          node --check src/compat/legacy-bailongma.js
+          node --check electron/legacy-compat.cjs
+          node --check electron/main.cjs
+
       - name: Verify GAI AI 3.3 runtime
         run: |
           npm run test:offline
