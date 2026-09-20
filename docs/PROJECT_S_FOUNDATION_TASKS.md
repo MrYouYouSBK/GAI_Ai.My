@@ -13,7 +13,7 @@
 - [ ] Memory Center.
 
 ## P0 Engineering
-- [ ] Isolate BaiLongma compatibility.
+- [~] Isolate BaiLongma compatibility — environment/global/UI legacy aliases now pass through dedicated compat modules; remaining legacy profile-name migration cleanup remains.
 - [ ] Separate PR CI / main internal / beta / stable release paths.
 - [ ] Preserve trusted macOS signing, notarization, stapling and Gatekeeper checks.
 - [ ] Keep architecture verification for arm64/x64.
