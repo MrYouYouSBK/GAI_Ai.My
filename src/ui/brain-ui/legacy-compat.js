@@ -102,3 +102,20 @@ export function readVoiceSilenceMs(storage = globalThis.localStorage) {
 export function migrateKnownUiStorage(storage = globalThis.localStorage) {
   for (const name of Object.keys(STORAGE)) storageKey(name, storage)
 }
+
+
+export function getDesktopBridge(scope = globalThis) {
+  return scope?.gai || scope?.bailongma || null
+}
+
+export function getVoiceBridge(scope = globalThis) {
+  return scope?.gaiVoice || scope?.bailongmaVoice || null
+}
+
+export function installVoiceBridge(api, scope = globalThis) {
+  if (!scope || !api) return api
+  scope.gaiVoice = api
+  // Legacy alias for renderer modules / integrations from pre-GAI releases.
+  scope.bailongmaVoice = api
+  return api
+}
