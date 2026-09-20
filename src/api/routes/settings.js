@@ -33,13 +33,15 @@ import { EMBEDDING_PROVIDER_PRESETS } from '../../config.js'
 import { TTS_PROVIDERS, TTS_VOICES } from '../../voice/tts-providers.js'
 import { getAgentName, validateAgentName } from '../agent.js'
 import { jsonResponse, readJsonBody } from '../utils.js'
-import { setConfig, createReminder, cancelReminder, listPendingReminders } from '../../db.js'
+import { setConfig, createReminder, cancelReminder, listPendingReminders, getRecentActionLogs } from '../../db.js'
 import { getMapServiceSettings, setMapServiceSettings } from '../../map-service.js'
 import { getCodexStatus, loginCodex } from '../../codex-connector.js'
 import { discoverLocalAI } from '../../local-ai-discovery.js'
 import { getManagedMlxStatus, installManagedMlx, startManagedMlx, stopManagedMlx } from '../../local-mlx-manager.js'
 import { getMediaProviderRuntimeConfig, getMediaProviderSettings, setMediaProviderSettings } from '../../media-provider-config.js'
 import { calculateNextDueAt } from '../../capabilities/tools/reminders.js'
+import { getPermissionCatalog } from '../../capabilities/permission-center.js'
+import { actionReceiptFromLog } from '../../capabilities/action-receipt.js'
 
 function checkLocalOrToken(req, res, url, requireLocalOrToken) {
   if (typeof requireLocalOrToken === 'function') return requireLocalOrToken(req, res, url)
@@ -48,6 +50,27 @@ function checkLocalOrToken(req, res, url, requireLocalOrToken) {
 }
 
 export async function handleSettingsRoutes(req, res, url, { requireLocalOrToken, hasAllowedAccess } = {}) {
+  if (req.method === 'GET' && url.pathname === '/settings/permissions') {
+    if (!hasAllowedAccess?.(req, url)) {
+      jsonResponse(res, 403, { ok: false, error: 'forbidden' })
+      return true
+    }
+    jsonResponse(res, 200, { ok: true, permissions: getPermissionCatalog() })
+    return true
+  }
+
+  if (req.method === 'GET' && url.pathname === '/settings/action-receipts') {
+    if (!hasAllowedAccess?.(req, url)) {
+      jsonResponse(res, 403, { ok: false, error: 'forbidden' })
+      return true
+    }
+    const requested = Number(url.searchParams.get('limit') || 50)
+    const limit = Math.min(200, Math.max(1, Number.isFinite(requested) ? Math.trunc(requested) : 50))
+    const receipts = getRecentActionLogs(limit).map(actionReceiptFromLog).reverse()
+    jsonResponse(res, 200, { ok: true, receipts })
+    return true
+  }
+
   if (req.method === 'GET' && url.pathname === '/settings/reminders') {
     jsonResponse(res, 200, { ok: true, reminders: listPendingReminders(100) })
     return true
