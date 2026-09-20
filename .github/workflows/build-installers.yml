@@ -51,6 +51,10 @@ jobs:
           node --check src/capabilities/tool-audit.js
           node --check src/api/routes/settings.js
           node --check src/ui/brain-ui/gai-control-center.js
+          node --check src/ui/brain-ui/app.js
+          node --check src/ui/brain-ui/voice-core.js
+          node --check src/ui/brain-ui/voice-continuous.js
+          node --check src/ui/brain-ui/tts-fx.js
           node --check src/ui/brain-ui/legacy-compat.js
           node --check src/compat/legacy-bailongma.js
           node --check electron/legacy-compat.cjs
