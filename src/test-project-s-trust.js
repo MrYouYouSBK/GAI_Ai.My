@@ -104,7 +104,7 @@ const fakeStorage = {
   setItem(key, value) { storageData.set(key, String(value)) },
 }
 assert.equal(readVoiceSilenceMs(fakeStorage), 2500)
-assert.equal(storageData.get('gai-voice-silence-ms'), '2500')
+assert.equal(storageData.get('gai.voice.silence-ms'), '2500')
 storageData.set('gai.voice.silence-ms', '1800')
 assert.equal(readVoiceSilenceMs(fakeStorage), 1800)
 
