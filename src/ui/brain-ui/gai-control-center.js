@@ -147,6 +147,30 @@ export function createGaiControlMarkup() {
         <div class="gai-links"><a href="https://chatgpt.com" target="_blank" rel="noreferrer">OpenAI / ChatGPT ↗</a><a href="https://aistudio.google.com" target="_blank" rel="noreferrer">Google AI Studio ↗</a></div>
         <div class="gai-inline-feedback" id="gai-media-feedback"></div>
       </section>
+
+      <section class="gai-card gai-card-wide">
+        <div class="gai-card-heading-row">
+          <div>
+            <h3 ${t('Permission Center', '權限中心')}>Permission Center</h3>
+            <p ${t('Set a default policy for each capability domain. Deny is enforced immediately. Always Allow never bypasses GAI AI high-risk safety gates.', '為每個能力領域設定預設權限。拒絕會立即生效；「永遠允許」不會繞過 GAI AI 的高風險安全門檻。')}>Set a default policy for each capability domain. Deny is enforced immediately. Always Allow never bypasses GAI AI high-risk safety gates.</p>
+          </div>
+          <button type="button" id="gai-refresh-permissions" ${t('Refresh', '刷新')}>Refresh</button>
+        </div>
+        <div class="gai-permission-list" id="gai-permission-list"></div>
+        <div class="gai-inline-feedback" id="gai-permission-feedback"></div>
+      </section>
+
+      <section class="gai-card gai-card-wide">
+        <div class="gai-card-heading-row">
+          <div>
+            <h3 ${t('Action Receipts', '操作收據')}>Action Receipts</h3>
+            <p ${t('A local audit trail of what GAI AI actually did, which capability it used and the result.', '本機操作稽核：顯示 GAI AI 實際做了什麼、使用哪個能力以及結果。')}>A local audit trail of what GAI AI actually did, which capability it used and the result.</p>
+          </div>
+          <button type="button" id="gai-refresh-receipts" ${t('Refresh', '刷新')}>Refresh</button>
+        </div>
+        <div class="gai-receipt-list" id="gai-action-receipts"></div>
+        <div class="gai-inline-feedback" id="gai-receipt-feedback"></div>
+      </section>
     </div>
   </div>`;
 }
@@ -476,6 +500,102 @@ export function initGaiControlCenter() {
     } catch (error) { setFeedback('gai-desktop-feedback', error.message, true); }
   });
 
+  async function refreshPermissions() {
+    const root = document.getElementById('gai-permission-list');
+    if (!root) return;
+    try {
+      const { permissions } = await json('/settings/permissions');
+      const grants = permissions?.grants || {};
+      root.replaceChildren();
+
+      for (const domain of permissions?.domains || []) {
+        const row = document.createElement('div');
+        row.className = 'gai-permission-row';
+
+        const copy = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = domain.title || domain.id;
+        const description = document.createElement('span');
+        description.textContent = domain.description || '';
+        copy.append(title, description);
+
+        const select = document.createElement('select');
+        select.dataset.domain = domain.id;
+        const choices = [
+          ['policy', locale() === 'zh' ? '跟隨安全策略' : 'Follow policy'],
+          ['ask', locale() === 'zh' ? '每次詢問' : 'Ask every time'],
+          ['always', locale() === 'zh' ? '永遠允許*' : 'Always allow*'],
+          ['deny', locale() === 'zh' ? '拒絕' : 'Deny'],
+        ];
+        for (const [value, label] of choices) {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = label;
+          select.appendChild(option);
+        }
+        select.value = grants[domain.id] || 'policy';
+        select.addEventListener('change', async () => {
+          select.disabled = true;
+          try {
+            await post('/settings/permissions', { domain: domain.id, mode: select.value });
+            setFeedback('gai-permission-feedback', locale() === 'zh' ? '權限已保存並立即套用。' : 'Permission saved and applied.');
+          } catch (error) {
+            setFeedback('gai-permission-feedback', error.message, true);
+            await refreshPermissions();
+          } finally {
+            select.disabled = false;
+          }
+        });
+
+        row.append(copy, select);
+        root.appendChild(row);
+      }
+    } catch (error) {
+      setFeedback('gai-permission-feedback', error.message, true);
+    }
+  }
+
+  async function refreshActionReceipts() {
+    const root = document.getElementById('gai-action-receipts');
+    if (!root) return;
+    try {
+      const { receipts = [] } = await json('/settings/action-receipts?limit=12');
+      root.replaceChildren();
+      if (!receipts.length) {
+        const empty = document.createElement('span');
+        empty.textContent = locale() === 'zh' ? '目前沒有操作收據。' : 'No action receipts yet.';
+        root.appendChild(empty);
+        return;
+      }
+
+      for (const receipt of receipts) {
+        const row = document.createElement('div');
+        row.className = `gai-receipt gai-receipt-${receipt.status || 'ok'}`;
+
+        const top = document.createElement('div');
+        top.className = 'gai-receipt-top';
+        const summary = document.createElement('strong');
+        summary.textContent = receipt.summary || receipt.tool || 'Action';
+        const meta = document.createElement('span');
+        const when = receipt.timestamp ? new Date(receipt.timestamp).toLocaleString() : '';
+        meta.textContent = `${when} · ${receipt.permission?.domain || 'other'} · ${receipt.risk || 'medium'}`;
+        top.append(summary, meta);
+
+        const detail = document.createElement('div');
+        detail.className = 'gai-receipt-detail';
+        detail.textContent = receipt.error || receipt.result_preview || (locale() === 'zh' ? '已完成' : 'Completed');
+
+        row.append(top, detail);
+        root.appendChild(row);
+      }
+    } catch (error) {
+      setFeedback('gai-receipt-feedback', error.message, true);
+    }
+  }
+
+  document.getElementById('gai-refresh-permissions')?.addEventListener('click', refreshPermissions);
+  document.getElementById('gai-refresh-receipts')?.addEventListener('click', refreshActionReceipts);
+
   async function refreshReminders() {
     const root = document.getElementById('gai-reminder-list');
     if (!root) return;
@@ -557,6 +677,8 @@ export function initGaiControlCenter() {
   desktop?.wake?.onStatus?.((payload) => status(wakeStatus, payload?.enabled === false ? 'off' : payload?.ready ? 'listening' : payload?.state || 'starting', payload?.ready ? 'ok' : ''));
   desktop?.onUpdaterStatus?.((payload) => status(updateStatus, payload?.stage || 'automatic', payload?.stage === 'downloaded' || payload?.stage === 'up-to-date' ? 'ok' : ''));
   refreshReminders();
+  refreshPermissions();
+  refreshActionReceipts();
   refreshDevices();
   detectLocalAI();
   refreshCodex();
