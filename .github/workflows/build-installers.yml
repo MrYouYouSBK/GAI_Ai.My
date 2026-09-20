@@ -53,6 +53,8 @@ jobs:
           node --check src/ui/brain-ui/gai-control-center.js
           node --check src/ui/brain-ui/app.js
           node --check src/ui/brain-ui/voice-core.js
+          node --check src/ui/brain-ui/voice-panel.js
+          node --check src/ui/brain-ui/voice-wake.js
           node --check src/ui/brain-ui/voice-continuous.js
           node --check src/ui/brain-ui/tts-fx.js
           node --check src/ui/brain-ui/legacy-compat.js
