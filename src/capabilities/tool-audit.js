@@ -2,6 +2,7 @@ import { insertActionLog } from '../db.js'
 import { emitEvent } from '../events.js'
 import { classifyTool } from './tool-policy.js'
 import { previewValue, safeJsonStringify } from './tool-utils.js'
+import { buildActionReceipt } from './action-receipt.js'
 
 function getExecutionSource(context = {}) {
   return context.source || context.trigger || (context.autonomous ? 'autonomous' : 'llm')
@@ -91,12 +92,30 @@ export function writeToolAuditLog({ name, args, context, policy, status, result 
     console.warn(`[audit] failed to persist tool audit log: ${err.message}`)
   }
 
+  const summary = summarizeToolExecution(name, auditArgs)
+  const risk = policy?.risk || classifyTool(name)
+  const source = getExecutionSource(context)
+
   emitEvent('tool_audit', {
     tool: name,
     status,
-    risk: policy?.risk || classifyTool(name),
-    summary: summarizeToolExecution(name, auditArgs),
+    risk,
+    summary,
     duration_ms: durationMs,
-    source: getExecutionSource(context),
+    source,
   })
+
+  emitEvent('action_receipt', buildActionReceipt({
+    timestamp: new Date(startedAt).toISOString(),
+    tool: name,
+    summary,
+    status,
+    risk,
+    source,
+    durationMs,
+    args: auditArgs,
+    resultPreview,
+    error,
+    policyReason: policy?.reason || '',
+  }))
 }
