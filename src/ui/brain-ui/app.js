@@ -19,13 +19,14 @@ import { initVoiceProfileUI } from "./voice-profile-ui.js";
 import { currentUiLocale, initUiLocale } from "./ui-i18n.js";
 import { initEntryCeremony } from "./entry-ceremony.js";
 import { formatStartupTaskBriefing } from "./startup-task-briefing.js";
+import { readUiStorage, storageKey } from "./legacy-compat.js";
 renderBrainUiApp(document.body);
 initUiLocale();
 initEntryCeremony();
 const THEME_KEY = "jarvis-brain-ui-theme";
 const PHYSICS_STORAGE_KEY = "jarvis-brain-ui-physics";
-const ACTIVATION_WARMUP_KEY = "bailongma_activation_warmup_until";
-const UI_ZOOM_STORAGE_KEY = "bailongma_ui_zoom_factor";
+const ACTIVATION_WARMUP_KEY = storageKey("activationWarmup");
+const UI_ZOOM_STORAGE_KEY = storageKey("uiZoom");
 const MAX_CHAT_HISTORY = 60;
 const DEFAULT_AGENT_NAME = "GAI AI";
 const DEFAULT_UI_ZOOM = 1.1;
@@ -33,7 +34,7 @@ const MIN_UI_ZOOM = 0.8;
 const MAX_UI_ZOOM = 1.8;
 const UI_ZOOM_STEP = 0.1;
 const UI_ZOOM_WHEEL_STEP = 0.05;
-const MEMORY_GRAPH_STORAGE_KEY = "bailongma-memory-graph-enabled";
+const MEMORY_GRAPH_STORAGE_KEY = storageKey("memoryGraphEnabled");
 const MEMORY_GRAPH_ENABLED = localStorage.getItem(MEMORY_GRAPH_STORAGE_KEY) !== "false";
 
 const themeSwitcher = document.getElementById("theme-switcher");
@@ -52,8 +53,8 @@ const focusBlockEl = document.getElementById("focus-block");
 const focusStackEl = document.getElementById("focus-stack");
 const focusDepthEl = document.getElementById("focus-depth");
 
-const IGNORED_VERSION_KEY = "bailongma_ignored_update_version";
-const SUPPRESS_UPDATES_KEY = "bailongma_suppress_update_notifications";
+const IGNORED_VERSION_KEY = storageKey("ignoredUpdateVersion");
+const SUPPRESS_UPDATES_KEY = storageKey("suppressUpdateNotifications");
 
 let agentName = DEFAULT_AGENT_NAME;
 let currentUiZoom = DEFAULT_UI_ZOOM;
@@ -2933,7 +2934,7 @@ function initTTSSettings() {
   const VOICE_AUTO_MIC_KEY   = "bailongma-voice-auto-mic";
   const VOICE_THRESHOLD_KEY  = "bailongma-voice-threshold";
   const VOICE_PROVIDER_KEY   = "bailongma-voice-provider";
-  const VOICE_MIC_DEVICE_KEY = "bailongma-voice-mic-device-id";
+  const VOICE_MIC_DEVICE_KEY = storageKey("voiceMicDevice");
 
   function applyVoiceProviderUI(provider) {
     const panels = {
@@ -3812,9 +3813,9 @@ initVoicePanel({
   getChatInput:  () => document.getElementById("msg-input"),
   getSendBtn:    () => document.getElementById("send-btn"),
   getSendMessage: (options) => chat?.send?.(options),
-  getLang:       () => localStorage.getItem("bailongma-voice-lang") || "multilingual",
-  getAutoSend:   () => localStorage.getItem("bailongma-voice-auto-send") !== "false",
-  getAutoMic:    () => localStorage.getItem("bailongma-voice-auto-mic") === "true",
+  getLang:       () => readUiStorage("voiceLanguage", "multilingual"),
+  getAutoSend:   () => readUiStorage("voiceAutoSend", "true") !== "false",
+  getAutoMic:    () => readUiStorage("voiceAutoMic", "false") === "true",
 });
 
 // ── 语音输出设备路由 ──
