@@ -55,7 +55,44 @@ export async function handleSettingsRoutes(req, res, url, { requireLocalOrToken,
       jsonResponse(res, 403, { ok: false, error: 'forbidden' })
       return true
     }
-    jsonResponse(res, 200, { ok: true, permissions: getPermissionCatalog() })
+    jsonResponse(res, 200, {
+      ok: true,
+      permissions: {
+        ...getPermissionCatalog(),
+        grants: getSecurity().permissionGrants || {},
+      },
+    })
+    return true
+  }
+
+  if (req.method === 'POST' && url.pathname === '/settings/permissions') {
+    if (!checkLocalOrToken(req, res, url, requireLocalOrToken)) return true
+    try {
+      const body = await readJsonBody(req)
+      const domain = String(body.domain || '').trim()
+      const mode = String(body.mode || '').trim().toLowerCase()
+      const catalog = getPermissionCatalog()
+      const validDomains = new Set(catalog.domains.map(item => item.id))
+      const persistentModes = new Set(['policy', 'ask', 'always', 'deny'])
+      if (!validDomains.has(domain)) throw new Error('Unknown permission domain')
+      if (!persistentModes.has(mode)) throw new Error('Persistent permission mode must be policy, ask, always or deny')
+
+      const current = getSecurity()
+      const grants = { ...(current.permissionGrants || {}) }
+      if (mode === 'policy') delete grants[domain]
+      else grants[domain] = mode
+
+      const security = setSecurity({ permissionGrants: grants })
+      jsonResponse(res, 200, {
+        ok: true,
+        permissions: {
+          ...catalog,
+          grants: security.permissionGrants || {},
+        },
+      })
+    } catch (err) {
+      jsonResponse(res, 400, { ok: false, error: err.message })
+    }
     return true
   }
 
