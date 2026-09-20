@@ -1,3 +1,5 @@
+import { getDesktopBridge } from './legacy-compat.js';
+
 // voice-wake.js —— 唤醒会话编排(命中→悬浮球→监听→退场)
 //
 // 命中「小白龙」由主进程经 IPC `wake:hit` 通知本渲染层(见 preload.cjs 的 bailongma.wake)。
@@ -22,7 +24,7 @@ const FRAME_MIN_MS = 33;       // 推帧给球窗的最小间隔(≈30fps)
 const BUSY_SK = new Set(['recognizing', 'processing', 'speaking', 'event', 'done']);
 
 export function createWakeFlow(core) {
-  const desktop = typeof window !== 'undefined' ? (window.gai || window.bailongma) : null;
+  const desktop = typeof window !== 'undefined' ? getDesktopBridge(window) : null;
   const orb = desktop?.wake || null;
 
   let active = false;          // 唤醒会话进行中
