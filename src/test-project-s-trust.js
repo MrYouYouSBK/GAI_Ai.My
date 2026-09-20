@@ -19,6 +19,8 @@ assert.equal(defaultPermissionModeFor({ tool: 'read_file', risk: 'low' }), 'poli
 const catalog = getPermissionCatalog()
 assert.ok(catalog.domains.some(domain => domain.id === 'files'))
 assert.ok(catalog.domains.some(domain => domain.id === 'security'))
+assert.ok(catalog.modes.some(mode => mode.id === 'deny'))
+assert.ok(catalog.modes.some(mode => mode.id === 'always'))
 
 const receipt = buildActionReceipt({
   tool: 'exec_command',
