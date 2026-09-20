@@ -1,5 +1,6 @@
 import { API } from './api-client.js';
 import { applyUiLocale, currentUiLocale } from './ui-i18n.js';
+import { readUiStorage, writeUiStorage } from './legacy-compat.js';
 
 const THEME_KEY = 'jarvis-brain-ui-theme';
 const SEARCH_HISTORY_KEY = 'gai-google-search-history';
@@ -409,7 +410,7 @@ export function initGaiControlCenter() {
     catch (error) { setFeedback('gai-search-feedback', error.message, true); }
   });
   document.getElementById('gai-save-voice')?.addEventListener('click', async () => {
-    try { await post('/settings/voice', { voiceProvider: voiceProvider.value }); localStorage.setItem('bailongma-voice-provider', voiceProvider.value); localStorage.setItem('bailongma-voice-lang', voiceLanguage.value); document.getElementById('voice-lang-select') && (document.getElementById('voice-lang-select').value = voiceLanguage.value); setFeedback('gai-voice-feedback', locale() === 'zh' ? '語音服務與中英馬多語設定已保存。' : 'Voice provider and Chinese + English + Malay recognition saved.'); }
+    try { await post('/settings/voice', { voiceProvider: voiceProvider.value }); writeUiStorage('voiceProvider', voiceProvider.value); writeUiStorage('voiceLanguage', voiceLanguage.value); document.getElementById('voice-lang-select') && (document.getElementById('voice-lang-select').value = voiceLanguage.value); setFeedback('gai-voice-feedback', locale() === 'zh' ? '語音服務與中英馬多語設定已保存。' : 'Voice provider and Chinese + English + Malay recognition saved.'); }
     catch (error) { setFeedback('gai-voice-feedback', error.message, true); }
   });
   document.getElementById('gai-request-mic')?.addEventListener('click', async () => {
@@ -659,7 +660,7 @@ export function initGaiControlCenter() {
   Promise.allSettled([
     json('/settings/map').then(({ map }) => { mapProvider.value = ['osm', 'google'].includes(map?.provider) ? map.provider : 'osm'; syncMapFields(); }),
     json('/settings/web-search').then(({ webSearch }) => { searchProvider.value = webSearch?.preferredEngine || 'auto'; }),
-    json('/settings/voice').then(() => { voiceProvider.value = 'local'; voiceLanguage.value = localStorage.getItem('bailongma-voice-lang') || 'multilingual'; }),
+    json('/settings/voice').then(() => { voiceProvider.value = 'local'; voiceLanguage.value = readUiStorage('voiceLanguage', 'multilingual'); }),
     json('/settings/media-provider').then(({ media }) => {
       mediaProvider.value = ['local', 'stable-diffusion', 'gemini', 'openai-compatible'].includes(media?.provider) ? media.provider : 'local';
       document.getElementById('gai-media-baseurl').value = media?.openaiBaseURL || 'https://api.openai.com/v1';
@@ -672,7 +673,7 @@ export function initGaiControlCenter() {
     }),
   ]).catch(() => {});
   syncMediaFields();
-  voiceLanguage.value = localStorage.getItem('bailongma-voice-lang') || 'multilingual';
+  voiceLanguage.value = readUiStorage('voiceLanguage', 'multilingual');
   desktop?.preferences?.get?.().then(syncDesktopStatus).catch(() => syncDesktopStatus({ wakeEnabled: false }));
   desktop?.wake?.onStatus?.((payload) => status(wakeStatus, payload?.enabled === false ? 'off' : payload?.ready ? 'listening' : payload?.state || 'starting', payload?.ready ? 'ok' : ''));
   desktop?.onUpdaterStatus?.((payload) => status(updateStatus, payload?.stage || 'automatic', payload?.stage === 'downloaded' || payload?.stage === 'up-to-date' ? 'ok' : ''));
