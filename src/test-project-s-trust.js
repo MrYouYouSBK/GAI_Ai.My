@@ -5,6 +5,12 @@ import {
   permissionDomainForTool,
 } from './capabilities/permission-center.js'
 import { actionReceiptFromLog, buildActionReceipt } from './capabilities/action-receipt.js'
+import {
+  getCompatiblePortEnv,
+  getCompatibleResourcesDirEnv,
+  getCompatibleUserDirEnv,
+} from './compat/legacy-bailongma.js'
+import { readVoiceSilenceMs } from './ui/brain-ui/legacy-compat.js'
 
 assert.equal(permissionDomainForTool('read_file'), 'files')
 assert.equal(permissionDomainForTool('exec_command'), 'shell')
@@ -52,5 +58,49 @@ const persisted = actionReceiptFromLog({
 assert.equal(persisted.id, 7)
 assert.equal(persisted.permission.domain, 'files')
 assert.deepEqual(persisted.affected, { path: 'test.md' })
+
+// GAI names must win, while old environment names still migrate existing users.
+const previousEnv = {
+  GAI_USER_DIR: process.env.GAI_USER_DIR,
+  BAILONGMA_USER_DIR: process.env.BAILONGMA_USER_DIR,
+  GAI_RESOURCES_DIR: process.env.GAI_RESOURCES_DIR,
+  BAILONGMA_RESOURCES_DIR: process.env.BAILONGMA_RESOURCES_DIR,
+  GAI_PORT: process.env.GAI_PORT,
+  BAILONGMA_PORT: process.env.BAILONGMA_PORT,
+}
+try {
+  delete process.env.GAI_USER_DIR
+  process.env.BAILONGMA_USER_DIR = '/legacy/user'
+  assert.equal(getCompatibleUserDirEnv(), '/legacy/user')
+  process.env.GAI_USER_DIR = '/gai/user'
+  assert.equal(getCompatibleUserDirEnv(), '/gai/user')
+
+  delete process.env.GAI_RESOURCES_DIR
+  process.env.BAILONGMA_RESOURCES_DIR = '/legacy/resources'
+  assert.equal(getCompatibleResourcesDirEnv(), '/legacy/resources')
+  process.env.GAI_RESOURCES_DIR = '/gai/resources'
+  assert.equal(getCompatibleResourcesDirEnv(), '/gai/resources')
+
+  delete process.env.GAI_PORT
+  process.env.BAILONGMA_PORT = '3999'
+  assert.equal(getCompatiblePortEnv(), '3999')
+  process.env.GAI_PORT = '3721'
+  assert.equal(getCompatiblePortEnv(), '3721')
+} finally {
+  for (const [key, value] of Object.entries(previousEnv)) {
+    if (value === undefined) delete process.env[key]
+    else process.env[key] = value
+  }
+}
+
+const storageData = new Map([['bailongma-voice-silence-ms', '2500']])
+const fakeStorage = {
+  getItem(key) { return storageData.has(key) ? storageData.get(key) : null },
+  setItem(key, value) { storageData.set(key, String(value)) },
+}
+assert.equal(readVoiceSilenceMs(fakeStorage), 2500)
+assert.equal(storageData.get('gai-voice-silence-ms'), '2500')
+storageData.set('gai-voice-silence-ms', '1800')
+assert.equal(readVoiceSilenceMs(fakeStorage), 1800)
 
 console.log('test-project-s-trust passed')
