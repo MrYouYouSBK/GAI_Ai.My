@@ -1,4 +1,5 @@
 import { config } from '../config.js'
+import { permissionDomainForTool } from './permission-center.js'
 
 const TOOL_RISK = {
   read_file: 'low',
@@ -112,6 +113,16 @@ export function evaluateToolPolicy(name, args = {}, context = {}) {
   const blockedTools = config.security?.blockedTools || []
   if (blockedTools.includes(name)) {
     return { allowed: false, risk, reason: `工具 "${name}" 已被安全策略禁用` }
+  }
+
+  const permissionDomain = permissionDomainForTool(name)
+  const domainMode = config.security?.permissionGrants?.[permissionDomain] || 'policy'
+  if (domainMode === 'deny') {
+    return {
+      allowed: false,
+      risk,
+      reason: `permission domain "${permissionDomain}" is denied by the user`,
+    }
   }
   if (['exec_command', 'exec_quick_command', 'exec_task_command', 'exec_background_command'].includes(name)) {
     const reasons = isDangerousShellCommand(args.command || args.cmd || '')
