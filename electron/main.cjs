@@ -27,6 +27,7 @@ const { autoUpdater } = require('electron-updater')
 const { CommunityMacUpdater } = require('./community-updater.cjs')
 const wakeWord = require('./wake-word.cjs')
 const devLight = require('./dev-board-light.cjs')
+const legacyCompat = require('./legacy-compat.cjs')
 
 const IS_DEV = !app.isPackaged
 const WINDOWS_APP_USER_MODEL_ID = 'com.mryouyousbk.gaiai'
@@ -37,7 +38,7 @@ const STARTED_IN_BACKGROUND = process.argv.includes('--background') || (() => {
 
 function resolvePortableRoot() {
   if (IS_DEV) return null
-  const requestedRoot = (process.env.GAI_PORTABLE_DIR || process.env.BAILONGMA_PORTABLE_DIR)?.trim()
+  const requestedRoot = legacyCompat.readPortableDir()
   if (requestedRoot) return path.resolve(requestedRoot)
   const exeDir = path.dirname(process.execPath)
   return fs.existsSync(path.join(exeDir, 'portable.flag')) ? exeDir : null
@@ -49,8 +50,7 @@ const IS_PORTABLE = Boolean(PORTABLE_USER_DIR)
 if (PORTABLE_USER_DIR) {
   try { fs.mkdirSync(PORTABLE_USER_DIR, { recursive: true }) } catch {}
   app.setPath('userData', PORTABLE_USER_DIR)
-  process.env.GAI_USER_DIR ||= PORTABLE_USER_DIR
-  process.env.BAILONGMA_USER_DIR ||= PORTABLE_USER_DIR
+  legacyCompat.publishUserDir(PORTABLE_USER_DIR)
 } else {
   // GAI AI v3 keeps the existing v2 profile so settings, memory and downloaded
   // local assets survive the product rename and in-place updater migration.
@@ -527,12 +527,11 @@ function validatePackagedNativeModules() {
 }
 
 async function bootstrapBackend(port) {
-  process.env.GAI_USER_DIR ||= USER_DIR
-  process.env.GAI_RESOURCES_DIR ||= RESOURCE_ROOT
-  process.env.GAI_PORT = String(port)
-  process.env.BAILONGMA_USER_DIR ||= USER_DIR
-  process.env.BAILONGMA_RESOURCES_DIR ||= RESOURCE_ROOT
-  process.env.BAILONGMA_PORT = String(port)
+  legacyCompat.publishBackendEnvironment({
+    userDir: USER_DIR,
+    resourcesDir: RESOURCE_ROOT,
+    port,
+  })
   validatePackagedNativeModules()
   await import(pathToFileURL(BACKEND_ENTRY).href)
 }
