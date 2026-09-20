@@ -10,7 +10,12 @@ import {
   getCompatibleResourcesDirEnv,
   getCompatibleUserDirEnv,
 } from './compat/legacy-bailongma.js'
-import { readVoiceSilenceMs } from './ui/brain-ui/legacy-compat.js'
+import {
+  readUiStorage,
+  readVoiceSilenceMs,
+  storageKey,
+  writeUiStorage,
+} from './ui/brain-ui/legacy-compat.js'
 
 assert.equal(permissionDomainForTool('read_file'), 'files')
 assert.equal(permissionDomainForTool('exec_command'), 'shell')
@@ -100,7 +105,21 @@ const fakeStorage = {
 }
 assert.equal(readVoiceSilenceMs(fakeStorage), 2500)
 assert.equal(storageData.get('gai-voice-silence-ms'), '2500')
-storageData.set('gai-voice-silence-ms', '1800')
+storageData.set('gai.voice.silence-ms', '1800')
 assert.equal(readVoiceSilenceMs(fakeStorage), 1800)
+
+// Generic UI migration: old values seed new GAI keys, then GAI keys win.
+const uiStorageData = new Map([['bailongma_ui_zoom_factor', '1.25']])
+const uiStorage = {
+  getItem(key) { return uiStorageData.has(key) ? uiStorageData.get(key) : null },
+  setItem(key, value) { uiStorageData.set(key, String(value)) },
+  removeItem(key) { uiStorageData.delete(key) },
+}
+assert.equal(storageKey('uiZoom', uiStorage), 'gai.ui-zoom-factor')
+assert.equal(readUiStorage('uiZoom', '1.0', uiStorage), '1.25')
+assert.equal(uiStorageData.get('gai.ui-zoom-factor'), '1.25')
+writeUiStorage('uiZoom', '1.4', uiStorage)
+assert.equal(readUiStorage('uiZoom', '1.0', uiStorage), '1.4')
+assert.equal(uiStorageData.get('bailongma_ui_zoom_factor'), '1.25')
 
 console.log('test-project-s-trust passed')
