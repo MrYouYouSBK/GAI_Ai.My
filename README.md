@@ -2,11 +2,11 @@
 
 # GAI AI
 
-> **GAI AI 3.2 Community Build** — 多语音、常驻唤醒、螢幕分享、时间线提醒和 Apple Silicon 本地推理集中在同一个桌面控制中心。项目继续基于 MIT License 源码维护并保留原作者版权与许可证；旧版用户数据、应用 ID 与自动更新链保持兼容。
+> **GAI AI 3.3** — Trusted Mac distribution、常驻多语音、时间线提醒与 Apple Silicon 本地 MLX 推理集中在同一个 local-first 桌面 Agent。项目继续基于 MIT License 源码维护并保留原作者版权与许可证；旧版用户数据、应用 ID 与自动更新链保持兼容。
 
 ## 零配置运行与模型融合
 
-`v3.2.0` 提供零配置离线核心与可选增强服务；默认不请求公网定位或热点源，打开后直接进入就绪状态。
+`v3.3.0` 提供零配置离线核心与可选增强服务；默认不依赖付费 API 或预装本地模型即可启动，并新增受信任的 macOS 发布链、持续多语音与 Apple Silicon 本地 MLX 管理能力。
 
 1. **GAI Offline Super（默认）**：无需 Key、无需充值、无需 Ollama，内置计算、换算、摘要、文本统计、JSON、密码、清单、时间与系统状态能力。
 2. **OpenAI Codex（可选）**：直接使用 ChatGPT 帐户登录，无需在 GAI AI 内配置 API Key。
@@ -22,9 +22,9 @@
 - Apple Silicon Mac（M1/M2/M3/M4/M5）：`GAI-AI-<version>-mac-arm64.dmg`
 - Intel Mac：`GAI-AI-<version>-mac-x64.dmg`
 
-每个版本都附带 `SHA256SUMS.txt`，可用于核对下载文件完整性。目前社区构建没有 Apple Developer ID 签名；首次在 macOS 打开时，如系统拦截，请在“系统设置 → 隐私与安全性”选择“仍要打开”。
+正式 macOS 发布构建使用 Developer ID 签名、Hardened Runtime、Apple notarization 与 stapling，并在 CI 中执行 Gatekeeper 验证；发布资产同时附带 SHA-256 校验文件。若某个临时/PR 构建未签名，它只用于测试，不应视为正式发布版本。
 
-安装包由 [GitHub Actions](https://github.com/MrYouYouSBK/GAI_Ai.My/actions/workflows/build-installers.yml) 在 Windows 与 macOS 官方托管环境中自动生成。代码合并到 `main` 后会按 `package.json` 版本自动创建或更新 `community-v*` Release；也可以手动运行工作流取得临时构建产物。
+安装包由 [GitHub Actions](https://github.com/MrYouYouSBK/GAI_Ai.My/actions/workflows/build-installers.yml) 在 Windows 与 macOS 托管环境中生成。当前工作流仍会在 `main` 推送时发布 `community-v*` Release；Project S Foundation REV.01 已将“PR CI / Internal / Beta / Stable”分流列为下一步发布治理任务，正式 Stable 将改为显式版本 Tag 触发。
 
 GAI AI 是一个持续运行、离线优先的桌面 AI Agent。它不是一次问答结束就退出的聊天程序，而是由主循环驱动：有用户消息时优先处理，空闲时按节奏继续整理记忆、检查任务、刷新上下文，并把状态实时推送到 Brain UI。
 
