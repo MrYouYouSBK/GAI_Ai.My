@@ -6,6 +6,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*"
 
 permissions:
   contents: write
@@ -114,7 +116,7 @@ jobs:
             runner: macos-15
     runs-on: ${{ matrix.runner }}
     env:
-      GAI_REQUIRE_MAC_SIGNING: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && 'true' || 'false' }}
+      GAI_REQUIRE_MAC_SIGNING: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request' && 'true' || 'false' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -173,8 +175,8 @@ jobs:
           if-no-files-found: error
 
   release:
-    name: Publish GitHub Release
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: Publish stable GitHub Release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs:
       - windows
       - macos
@@ -208,7 +210,7 @@ jobs:
           release_tag="${{ steps.version.outputs.tag }}"
           if gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$release_tag" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
-            gh release edit "$release_tag" --notes-file RELEASE_NOTES_3.3.md --title "GAI AI 3.3.0" --repo "$GITHUB_REPOSITORY"
+            gh release edit "$release_tag" --notes-file RELEASE_NOTES_3.3.md --title "GAI AI ${GITHUB_REF_NAME#v}" --repo "$GITHUB_REPOSITORY"
           else
             gh release create "$release_tag" release-assets/* \
               --repo "$GITHUB_REPOSITORY" \
