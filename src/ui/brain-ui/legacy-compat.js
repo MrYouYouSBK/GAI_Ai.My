@@ -60,13 +60,24 @@ export function storageKey(name, storage = globalThis.localStorage) {
 export function readUiStorage(name, fallback = null, storage = globalThis.localStorage) {
   const target = storageOrNull(storage)
   if (!target) return fallback
-  const key = storageKey(name, target)
+  const spec = entry(name)
+
   try {
-    const value = target.getItem(key)
-    return value == null ? fallback : value
-  } catch {
-    return fallback
-  }
+    const current = target.getItem(spec.current)
+    if (current != null) return current
+
+    for (const legacyKey of spec.legacy) {
+      const legacy = target.getItem(legacyKey)
+      if (legacy == null) continue
+
+      // Migration is best-effort. A read-only storage shim, private-mode
+      // restriction or quota failure must never hide the legacy value.
+      try { target.setItem?.(spec.current, legacy) } catch {}
+      return legacy
+    }
+  } catch {}
+
+  return fallback
 }
 
 export function writeUiStorage(name, value, storage = globalThis.localStorage) {
