@@ -56,6 +56,7 @@ jobs:
           npm run test:community-updater
           npm run test:mac-signing-key-bundle
           npm run test:websocket-security
+          npm run test:project-s-trust
 
   windows:
     name: Windows x64 installer
