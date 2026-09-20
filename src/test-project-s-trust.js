@@ -11,6 +11,9 @@ import {
   getCompatibleUserDirEnv,
 } from './compat/legacy-bailongma.js'
 import {
+  getDesktopBridge,
+  getVoiceBridge,
+  installVoiceBridge,
   readUiStorage,
   readVoiceSilenceMs,
   storageKey,
@@ -121,5 +124,18 @@ assert.equal(uiStorageData.get('gai.ui-zoom-factor'), '1.25')
 writeUiStorage('uiZoom', '1.4', uiStorage)
 assert.equal(readUiStorage('uiZoom', '1.0', uiStorage), '1.4')
 assert.equal(uiStorageData.get('bailongma_ui_zoom_factor'), '1.25')
+
+// New GAI global names win; legacy aliases remain readable during migration.
+const legacyDesktop = { source: 'legacy' }
+const gaiDesktop = { source: 'gai' }
+assert.equal(getDesktopBridge({ bailongma: legacyDesktop }), legacyDesktop)
+assert.equal(getDesktopBridge({ gai: gaiDesktop, bailongma: legacyDesktop }), gaiDesktop)
+
+const scope = {}
+const voiceApi = { isActive: () => true }
+installVoiceBridge(voiceApi, scope)
+assert.equal(scope.gaiVoice, voiceApi)
+assert.equal(scope.bailongmaVoice, voiceApi)
+assert.equal(getVoiceBridge(scope), voiceApi)
 
 console.log('test-project-s-trust passed')
