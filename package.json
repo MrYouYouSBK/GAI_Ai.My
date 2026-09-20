@@ -67,7 +67,8 @@
     "smoke:brain-ui": "node scripts/smoke-brain-ui.mjs",
     "smoke:social": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:ELECTRON_RUN_AS_NODE='1'; .\\node_modules\\.bin\\electron.cmd .\\scripts\\smoke-social.mjs\"",
     "smoke:feishu-ws": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:ELECTRON_RUN_AS_NODE='1'; .\\node_modules\\.bin\\electron.cmd .\\scripts\\smoke-feishu-ws.mjs\"",
-    "verify:mac": "node scripts/verify-mac-build.mjs"
+    "verify:mac": "node scripts/verify-mac-build.mjs",
+    "test:project-s-trust": "node ./src/test-project-s-trust.js"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.0.0",
