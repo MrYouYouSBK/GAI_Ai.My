@@ -4598,3 +4598,95 @@ body.typhoon-mode .console > #voice-panel .voice-transcript { flex: 1; max-width
   .gai-entry-scan, .gai-entry-orbit { animation: none !important; }
   .gai-entry-core, .gai-entry-copy { animation-duration: .01ms !important; animation-delay: 0s !important; }
 }
+
+
+/* Project S trust surfaces */
+.gai-card-wide { grid-column: 1 / -1; }
+.gai-card-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.gai-card-heading-row > div { min-width: 0; }
+.gai-card-heading-row button {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--bg0);
+  color: var(--ink2);
+  cursor: pointer;
+  font: 600 9px/1 "JetBrains Mono", ui-monospace, monospace;
+}
+.gai-permission-list,
+.gai-receipt-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+}
+.gai-permission-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 160px;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--bg0) 72%, transparent);
+}
+.gai-permission-row > div { min-width: 0; }
+.gai-permission-row strong {
+  display: block;
+  color: var(--ink);
+  font-size: 10px;
+}
+.gai-permission-row span {
+  display: block;
+  margin-top: 3px;
+  color: var(--dim);
+  font-size: 9px;
+  line-height: 1.4;
+}
+.gai-receipt {
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--bg0) 72%, transparent);
+}
+.gai-receipt-ok { border-left-color: var(--ok); }
+.gai-receipt-denied,
+.gai-receipt-error { border-left-color: var(--warm); }
+.gai-receipt-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+.gai-receipt-top strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gai-receipt-top span {
+  flex: 0 0 auto;
+  color: var(--dim);
+  font: 500 8px/1.3 "JetBrains Mono", ui-monospace, monospace;
+}
+.gai-receipt-detail {
+  margin-top: 5px;
+  overflow: hidden;
+  color: var(--ink2);
+  font: 500 9px/1.45 "JetBrains Mono", ui-monospace, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .gai-permission-row { grid-template-columns: 1fr; }
+  .gai-receipt-top { align-items: flex-start; flex-direction: column; gap: 3px; }
+}
