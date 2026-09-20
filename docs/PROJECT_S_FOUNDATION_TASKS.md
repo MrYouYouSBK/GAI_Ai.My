@@ -1,8 +1,8 @@
 # Project S Foundation Tasks — GAI AI
 
 ## P0 Trust
-- [~] Permission Center — permission domains/catalog API implemented; persistent user grants UI/state remains.
-- [~] Action Receipts — runtime receipt events + read API implemented; dedicated UI/undo remains.
+- [~] Permission Center — domain catalog, persistent modes, explicit DENY enforcement and Control Center UI implemented; scoped/one-time authorization tokens remain.
+- [~] Action Receipts — runtime events, read API and Control Center receipt list implemented; reversible Undo remains.
 - [ ] Capability-scoped authorization.
 - [ ] User-visible/revocable grants.
 
