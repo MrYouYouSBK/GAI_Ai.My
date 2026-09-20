@@ -44,6 +44,7 @@ export { detectOpenFollowupQuestion } from '../runtime/delivery.js'
 
 import { config, setSecurity } from '../config.js'
 import { isExternalChannel } from '../identity.js'
+import { getWindowLayoutSnapshotReader } from '../compat/legacy-bailongma.js'
 
 // 工具执行器：根据工具名和参数执行对应操作，返回结果字符串
 function inferFileWritePreviewOutcome(result = '') {
@@ -61,7 +62,7 @@ function inferFileWritePreviewOutcome(result = '') {
 
 function getDesktopWindowLayoutSnapshot() {
   try {
-    const reader = globalThis?.getGaiWindowLayoutSnapshot || globalThis?.getBailongmaWindowLayoutSnapshot
+    const reader = getWindowLayoutSnapshotReader()
     return typeof reader === 'function' ? reader() : null
   } catch {
     return null
