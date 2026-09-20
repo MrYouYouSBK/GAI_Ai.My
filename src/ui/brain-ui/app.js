@@ -1591,7 +1591,7 @@ let liveTurnSpeak = false;
 
 // 流式语音合成：边下边播，首包到达即出声（后端 /tts/stream 本就分块返回，
 // 这里用 MediaSource 消费，省去"等整段下载完再播"的延迟）。默认开启，可在设置关闭。
-const TTS_STREAMING_KEY = 'bailongma.tts.streaming';
+const TTS_STREAMING_KEY = storageKey("ttsStreaming");
 function isTTSStreamingEnabled() {
   try { return localStorage.getItem(TTS_STREAMING_KEY) !== '0'; } catch { return true; } // 默认开启
 }
@@ -2929,11 +2929,11 @@ function initTTSSettings() {
     });
   }
 
-  const VOICE_LANG_KEY       = "bailongma-voice-lang";
-  const VOICE_AUTO_SEND_KEY  = "bailongma-voice-auto-send";
-  const VOICE_AUTO_MIC_KEY   = "bailongma-voice-auto-mic";
-  const VOICE_THRESHOLD_KEY  = "bailongma-voice-threshold";
-  const VOICE_PROVIDER_KEY   = "bailongma-voice-provider";
+  const VOICE_LANG_KEY       = storageKey("voiceLanguage");
+  const VOICE_AUTO_SEND_KEY  = storageKey("voiceAutoSend");
+  const VOICE_AUTO_MIC_KEY   = storageKey("voiceAutoMic");
+  const VOICE_THRESHOLD_KEY  = storageKey("voiceThreshold");
+  const VOICE_PROVIDER_KEY   = storageKey("voiceProvider");
   const VOICE_MIC_DEVICE_KEY = storageKey("voiceMicDevice");
 
   function applyVoiceProviderUI(provider) {
