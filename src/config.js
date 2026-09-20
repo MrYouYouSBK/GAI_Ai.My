@@ -1058,6 +1058,7 @@ export const config = {
     fileSandbox: true,
     execSandbox: true,
     blockedTools: [],
+    permissionGrants: {},
     updatedAt: null,
   },
   network: {
@@ -1087,6 +1088,13 @@ if (parsedConfig) {
     if (typeof s.fileSandbox === 'boolean') config.security.fileSandbox = s.fileSandbox
     if (typeof s.execSandbox === 'boolean') config.security.execSandbox = s.execSandbox
     if (Array.isArray(s.blockedTools)) config.security.blockedTools = s.blockedTools
+    if (s.permissionGrants && typeof s.permissionGrants === 'object' && !Array.isArray(s.permissionGrants)) {
+      const allowedModes = new Set(['policy', 'ask', 'always', 'deny'])
+      config.security.permissionGrants = Object.fromEntries(
+        Object.entries(s.permissionGrants)
+          .filter(([domain, mode]) => typeof domain === 'string' && allowedModes.has(mode))
+      )
+    }
     if (typeof s.updatedAt === 'string') config.security.updatedAt = s.updatedAt
   }
   if (parsedConfig.network && typeof parsedConfig.network === 'object') {
@@ -1519,6 +1527,7 @@ export function getSecurity() {
     fileSandbox: config.security.fileSandbox,
     execSandbox: config.security.execSandbox,
     blockedTools: [...config.security.blockedTools],
+    permissionGrants: { ...(config.security.permissionGrants || {}) },
     updatedAt: config.security.updatedAt || null,
   }
 }
@@ -1530,9 +1539,17 @@ export function setSecurity(updates) {
   if (Array.isArray(updates.blockedTools)) {
     config.security.blockedTools = updates.blockedTools.filter(t => typeof t === 'string')
   }
+  if (updates.permissionGrants && typeof updates.permissionGrants === 'object' && !Array.isArray(updates.permissionGrants)) {
+    const allowedModes = new Set(['policy', 'ask', 'always', 'deny'])
+    config.security.permissionGrants = Object.fromEntries(
+      Object.entries(updates.permissionGrants)
+        .filter(([domain, mode]) => typeof domain === 'string' && allowedModes.has(mode))
+    )
+  }
   const changed = before.fileSandbox !== config.security.fileSandbox
     || before.execSandbox !== config.security.execSandbox
     || JSON.stringify(before.blockedTools) !== JSON.stringify(config.security.blockedTools)
+    || JSON.stringify(before.permissionGrants) !== JSON.stringify(config.security.permissionGrants)
   if (changed) config.security.updatedAt = nowTimestamp()
   patchConfig({ security: { ...config.security } })
   return getSecurity()
