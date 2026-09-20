@@ -1,6 +1,6 @@
 import { API } from './api-client.js';
 import { applyUiLocale, currentUiLocale } from './ui-i18n.js';
-import { readUiStorage, writeUiStorage } from './legacy-compat.js';
+import { getDesktopBridge, readUiStorage, writeUiStorage } from './legacy-compat.js';
 
 const THEME_KEY = 'jarvis-brain-ui-theme';
 const SEARCH_HISTORY_KEY = 'gai-google-search-history';
@@ -200,7 +200,7 @@ async function json(path, options) {
 }
 
 export function initGaiControlCenter() {
-  const desktop = window.gai || window.bailongma;
+  const desktop = getDesktopBridge();
   const langSelect = document.getElementById('gai-language-select');
   const themeSelect = document.getElementById('gai-theme-select');
   const localStatus = document.getElementById('gai-local-ai-status');
