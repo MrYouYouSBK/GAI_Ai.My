@@ -1,8 +1,8 @@
 # Project S Foundation Tasks — GAI AI
 
 ## P0 Trust
-- [~] Permission Center — domain catalog, persistent modes, DENY enforcement, Ask Every Time runtime pause, Allow Once approval broker/API/UI implemented; resource-scoped grants remain.
-- [~] Action Receipts — runtime events/API/UI, operation type, affected resources and truthful reversibility metadata implemented; transactional Undo remains.
+- [~] Permission Center — persistent modes, DENY, Ask Every Time, Allow Once and Files selected-folder scopes are implemented end-to-end; native folder picker and non-file scoped grants remain.
+- [~] Action Receipts — runtime events/API/UI, operation type, affected resources and truthful reversibility metadata are implemented; transactional before-state capture and verified Undo remain.
 - [ ] Capability-scoped authorization.
 - [ ] User-visible/revocable grants.
 
