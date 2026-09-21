@@ -25,6 +25,7 @@ import { SANDBOX_ROOT } from './sandbox.js'
 import { sceneStore } from '../scene/scene-store.js'
 import { sceneClientCount } from '../scene/scene-server.js'
 import { evaluateToolPolicy } from './tool-policy.js'
+import { requestToolPermission } from './permission-requests.js'
 import { inferToolStatus, writeToolAuditLog } from './tool-audit.js'
 import { execDeleteFile, execListDir, execMakeDir, execReadFile, execWriteFile } from './tools/filesystem.js'
 import { execBackgroundCommand, execCommand, execDownloadFile, execKillProcess, execListProcesses, execQuickCommand, execTaskCommand } from './tools/shell.js'
@@ -382,10 +383,52 @@ export async function executeTool(name, args, context = {}) {
       policy: {
         risk: policy.risk,
         reason: policy.reason,
+        domain: policy.permissionDomain,
+        mode: policy.permissionMode,
       },
     })
     writeToolAuditLog({ name, args: safeArgs, context, policy, status: 'denied', result, startedAt })
     return result
+  }
+
+  if (policy.requiresConfirmation) {
+    const approval = await requestToolPermission({
+      tool: name,
+      args: safeArgs,
+      policy,
+      context,
+    })
+
+    if (approval.decision !== 'allow_once') {
+      const approvalPolicy = {
+        ...policy,
+        reason: approval.decision === 'timeout'
+          ? 'permission request timed out'
+          : 'permission request denied by the user',
+      }
+      const result = toolJson({
+        ok: false,
+        tool: name,
+        error: approval.decision === 'timeout' ? 'permission timeout' : 'permission denied',
+        permission_request_id: approval.id,
+        policy: {
+          risk: approvalPolicy.risk,
+          reason: approvalPolicy.reason,
+          domain: approvalPolicy.permissionDomain,
+          mode: approvalPolicy.permissionMode,
+        },
+      })
+      writeToolAuditLog({
+        name,
+        args: safeArgs,
+        context,
+        policy: approvalPolicy,
+        status: 'denied',
+        result,
+        startedAt,
+      })
+      return result
+    }
   }
 
   try {
