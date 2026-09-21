@@ -4757,3 +4757,10 @@ body.typhoon-mode .console > #voice-panel .voice-transcript { flex: 1; max-width
 @media (max-width: 760px) {
   .gai-permission-request { grid-template-columns: 1fr; }
 }
+
+
+.gai-receipt-undo {
+  margin-top: 4px;
+  color: var(--dim);
+  font: 500 8px/1.35 "JetBrains Mono", ui-monospace, monospace;
+}
