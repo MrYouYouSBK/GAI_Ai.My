@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict'
+import path from 'node:path'
 import {
   defaultPermissionModeFor,
+  evaluatePermissionScope,
   getPermissionCatalog,
   permissionDomainForTool,
+  permissionResourceForTool,
 } from './capabilities/permission-center.js'
 import { actionReceiptFromLog, buildActionReceipt } from './capabilities/action-receipt.js'
 import {
@@ -34,6 +37,25 @@ assert.equal(permissionDomainForTool('unknown_future_tool'), 'other')
 assert.equal(defaultPermissionModeFor({ tool: 'install_software', risk: 'high' }), 'ask')
 assert.equal(defaultPermissionModeFor({ tool: 'delete_file', risk: 'high' }), 'ask')
 assert.equal(defaultPermissionModeFor({ tool: 'read_file', risk: 'low' }), 'policy')
+
+const scopedResource = permissionResourceForTool('write_file', { path: 'project-scope/example.txt' })
+assert.ok(scopedResource?.path)
+const allowedFolder = path.dirname(scopedResource.path)
+const insideScope = evaluatePermissionScope(
+  'write_file',
+  { path: 'project-scope/example.txt' },
+  { files: [allowedFolder] },
+)
+assert.equal(insideScope.supported, true)
+assert.equal(insideScope.allowed, true)
+
+const outsideScope = evaluatePermissionScope(
+  'write_file',
+  { path: 'outside-scope/example.txt' },
+  { files: [allowedFolder] },
+)
+assert.equal(outsideScope.supported, true)
+assert.equal(outsideScope.allowed, false)
 
 const catalog = getPermissionCatalog()
 assert.ok(catalog.domains.some(domain => domain.id === 'files'))
