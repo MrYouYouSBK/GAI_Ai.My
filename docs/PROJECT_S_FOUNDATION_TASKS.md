@@ -1,8 +1,8 @@
 # Project S Foundation Tasks — GAI AI
 
 ## P0 Trust
-- [~] Permission Center — domain catalog, persistent modes, explicit DENY enforcement and Control Center UI implemented; scoped/one-time authorization tokens remain.
-- [~] Action Receipts — runtime events, read API and Control Center receipt list implemented; reversible Undo remains.
+- [~] Permission Center — domain catalog, persistent modes, DENY enforcement, Ask Every Time runtime pause, Allow Once approval broker/API/UI implemented; resource-scoped grants remain.
+- [~] Action Receipts — runtime events/API/UI, operation type, affected resources and truthful reversibility metadata implemented; transactional Undo remains.
 - [ ] Capability-scoped authorization.
 - [ ] User-visible/revocable grants.
 
@@ -13,6 +13,7 @@
 - [ ] Memory Center.
 
 ## P0 Engineering
+- [~] Dependency security baseline — npm audit is classified into direct/transitive findings and uploaded by CI; remediation upgrades remain.
 - [~] Isolate BaiLongma compatibility — environment/global/UI legacy aliases now pass through dedicated compat modules; remaining legacy profile-name migration cleanup remains.
 - [ ] Separate PR CI / main internal / beta / stable release paths.
 - [ ] Preserve trusted macOS signing, notarization, stapling and Gatekeeper checks.
