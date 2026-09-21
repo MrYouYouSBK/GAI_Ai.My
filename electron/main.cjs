@@ -1450,6 +1450,23 @@ ipcMain.handle('desktop-preferences:set', (_event, updates = {}) => {
   return prefs
 })
 
+ipcMain.handle('desktop:pick-folders', async () => {
+  try {
+    const result = await dialog.showOpenDialog({
+      title: 'Choose folders GAI AI may access',
+      properties: ['openDirectory', 'multiSelections', 'createDirectory'],
+    })
+    if (result.canceled) return { ok: true, canceled: true, paths: [] }
+    return {
+      ok: true,
+      canceled: false,
+      paths: (result.filePaths || []).map(value => path.resolve(value)),
+    }
+  } catch (error) {
+    return { ok: false, error: error?.message || String(error), paths: [] }
+  }
+})
+
 ipcMain.handle('desktop:open-external', async (_event, rawUrl) => {
   try {
     const url = new URL(String(rawUrl || ''))
