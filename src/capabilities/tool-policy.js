@@ -1,5 +1,5 @@
 import { config } from '../config.js'
-import { permissionDomainForTool } from './permission-center.js'
+import { evaluatePermissionScope, permissionDomainForTool } from './permission-center.js'
 
 const TOOL_RISK = {
   read_file: 'low',
@@ -167,6 +167,24 @@ export function evaluateToolPolicy(name, args = {}, context = {}) {
       permissionMode: domainMode,
     }
   }
+
+  if (domainMode === 'scope') {
+    const scope = evaluatePermissionScope(name, args, config.security?.permissionScopes || {})
+    if (!scope.allowed) {
+      return {
+        allowed: true,
+        risk,
+        reason: scope.resource
+          ? `resource is outside the allowed ${permissionDomain} scope`
+          : `tool does not expose a scope-verifiable ${permissionDomain} resource`,
+        permissionDomain,
+        permissionMode: domainMode,
+        requiresConfirmation: true,
+        permissionResource: scope.resource,
+      }
+    }
+  }
+
   return {
     allowed: true,
     risk,
