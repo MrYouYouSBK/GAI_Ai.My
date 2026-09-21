@@ -54,6 +54,10 @@ assert.equal(receipt.permission.domain, 'shell')
 assert.equal(receipt.permission.default_mode, 'ask')
 assert.equal(receipt.status, 'ok')
 assert.deepEqual(receipt.affected, { command: 'echo hello' })
+assert.equal(receipt.operation, 'execute')
+assert.equal(receipt.affected_resources[0].type, 'command')
+assert.equal(receipt.reversible.available, false)
+assert.equal(receipt.reversible.kind, 'not_captured')
 
 const persisted = actionReceiptFromLog({
   id: 7,
@@ -71,6 +75,8 @@ const persisted = actionReceiptFromLog({
 assert.equal(persisted.id, 7)
 assert.equal(persisted.permission.domain, 'files')
 assert.deepEqual(persisted.affected, { path: 'test.md' })
+assert.equal(persisted.affected_resources[0].type, 'file')
+assert.equal(persisted.affected_resources[0].locator, 'test.md')
 
 // GAI names must win, while old environment names still migrate existing users.
 const previousEnv = {
