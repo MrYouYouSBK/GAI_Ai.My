@@ -7,7 +7,7 @@ import { buildActionReceipt } from './action-receipt.js'
 function getExecutionSource(context = {}) {
   return context.source || context.trigger || (context.autonomous ? 'autonomous' : 'llm')
 }
-function summarizeToolExecution(name, args = {}) {
+export function summarizeToolExecution(name, args = {}) {
   switch (name) {
     case 'read_file':
       return `read_file(${args.path || args.filename || args.file_path || '?'})`
@@ -43,7 +43,7 @@ function summarizeToolExecution(name, args = {}) {
 const SENSITIVE_ARG_KEY_RE = /(?:api[_-]?key|apikey|access[_-]?key|secret|token|password|authorization|bearer)/i
 const SECRET_VALUE_RE = /\b(?:sk|ak|rk|pk)-[A-Za-z0-9_\-.]{12,180}\b/g
 
-function redactAuditValue(value) {
+export function redactAuditValue(value) {
   if (typeof value === 'string') return value.replace(SECRET_VALUE_RE, '[redacted]')
   if (Array.isArray(value)) return value.map(redactAuditValue)
   if (!value || typeof value !== 'object') return value
