@@ -533,7 +533,32 @@ export function initGaiControlCenter() {
             ? '允許資料夾路徑；多個請用 ; 分隔'
             : 'Allowed folder paths; separate multiple folders with ;';
           scopeInput.value = (scopes.files || []).join('; ');
-          scopeEditor.appendChild(scopeInput);
+
+          const chooseFolders = document.createElement('button');
+          chooseFolders.type = 'button';
+          chooseFolders.className = 'gai-choose-folders';
+          chooseFolders.textContent = locale() === 'zh' ? '選擇資料夾…' : 'Choose folders…';
+          chooseFolders.hidden = !desktop?.files?.pickFolders;
+          chooseFolders.addEventListener('click', async () => {
+            chooseFolders.disabled = true;
+            try {
+              const result = await desktop.files.pickFolders();
+              if (!result?.ok) throw new Error(result?.error || 'Folder selection failed');
+              if (!result.canceled && result.paths?.length) {
+                const existing = String(scopeInput.value || '')
+                  .split(';')
+                  .map(value => value.trim())
+                  .filter(Boolean);
+                scopeInput.value = [...new Set([...existing, ...result.paths])].join('; ');
+              }
+            } catch (error) {
+              setFeedback('gai-permission-feedback', error.message, true);
+            } finally {
+              chooseFolders.disabled = false;
+            }
+          });
+
+          scopeEditor.append(scopeInput, chooseFolders);
           copy.appendChild(scopeEditor);
         }
 
