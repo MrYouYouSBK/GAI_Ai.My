@@ -27,6 +27,9 @@ const desktopApi = {
     set: updates => ipcRenderer.invoke('desktop-preferences:set', updates || {}),
   },
   openExternal: url => ipcRenderer.invoke('desktop:open-external', url),
+  files: {
+    pickFolders: () => ipcRenderer.invoke('desktop:pick-folders'),
+  },
   screen: {
     getStatus: () => ipcRenderer.invoke('screen-sharing:get-status'),
     setEnabled: enabled => ipcRenderer.invoke('screen-sharing:set-enabled', enabled),
