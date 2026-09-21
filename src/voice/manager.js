@@ -4,6 +4,7 @@ import { spawn } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { getCompatibleResourcesDirEnv } from '../compat/legacy-bailongma.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -17,7 +18,7 @@ let statusMessage = ''
 //   打包模式 → 优先用 extraResources 中的 whisper_server.exe（无需 Python）
 //   开发模式 → 用 Python + whisper_server.py
 function resolveServer() {
-  const resourcesDir = process.env.GAI_RESOURCES_DIR || process.env.BAILONGMA_RESOURCES_DIR
+  const resourcesDir = getCompatibleResourcesDirEnv()
   if (resourcesDir && resourcesDir.endsWith('.asar')) {
     // 打包后 extraResources 落在 app.asar 的上一级目录（resources/）
     const resourcesPath = path.dirname(resourcesDir)

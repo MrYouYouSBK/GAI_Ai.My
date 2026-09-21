@@ -6,9 +6,15 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*"
 
 permissions:
   contents: write
+
+concurrency:
+  group: gai-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   release-safety:
@@ -16,10 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
 
@@ -31,16 +37,43 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
 
       - name: Install dependencies
         run: npm ci --ignore-scripts
+
+      - name: Capture dependency security baseline
+        shell: bash
+        run: |
+          npm audit --json > npm-audit.json || true
+          npm run audit:security:report -- npm-audit.json security-audit-summary.md
+
+      - name: Syntax-check Project S trust surfaces
+        run: |
+          node --check src/capabilities/permission-center.js
+          node --check src/capabilities/permission-requests.js
+          node --check src/capabilities/action-receipt.js
+          node --check scripts/security-audit-report.mjs
+          node --check src/capabilities/tool-audit.js
+          node --check src/api/routes/settings.js
+          node --check src/ui/brain-ui/gai-control-center.js
+          node --check src/ui/brain-ui/app.js
+          node --check src/ui/brain-ui/voice-core.js
+          node --check src/ui/brain-ui/voice-panel.js
+          node --check src/ui/brain-ui/voice-wake.js
+          node --check src/ui/brain-ui/voice-continuous.js
+          node --check src/ui/brain-ui/tts-fx.js
+          node --check src/ui/brain-ui/legacy-compat.js
+          node --check src/compat/legacy-bailongma.js
+          node --check electron/legacy-compat.cjs
+          node --check electron/preload.cjs
+          node --check electron/main.cjs
 
       - name: Verify GAI AI 3.3 runtime
         run: |
@@ -54,6 +87,17 @@ jobs:
           npm run test:community-updater
           npm run test:mac-signing-key-bundle
           npm run test:websocket-security
+          npm run test:project-s-trust
+
+      - name: Upload dependency security baseline
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: GAI-AI-dependency-security-audit
+          path: |
+            npm-audit.json
+            security-audit-summary.md
+          if-no-files-found: warn
 
   windows:
     name: Windows x64 installer
@@ -65,10 +109,10 @@ jobs:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -114,13 +158,13 @@ jobs:
             runner: macos-15
     runs-on: ${{ matrix.runner }}
     env:
-      GAI_REQUIRE_MAC_SIGNING: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && 'true' || 'false' }}
+      GAI_REQUIRE_MAC_SIGNING: ${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request' && 'true' || 'false' }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -173,8 +217,8 @@ jobs:
           if-no-files-found: error
 
   release:
-    name: Publish GitHub Release
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: Publish stable GitHub Release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     needs:
       - windows
       - macos
@@ -183,14 +227,21 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Resolve release tag
+      - name: Validate stable release tag
         id: version
         shell: bash
         run: |
+          set -euo pipefail
           version=$(node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version")
-          echo "tag=community-v${version}" >> "$GITHUB_OUTPUT"
+          expected="v${version}"
+          actual="${GITHUB_REF_NAME}"
+          if [[ "$actual" != "$expected" ]]; then
+            echo "::error::Stable tag $actual does not match package.json version $version (expected $expected)."
+            exit 1
+          fi
+          echo "tag=$actual" >> "$GITHUB_OUTPUT"
 
       - name: Download installers
         uses: actions/download-artifact@v4
@@ -208,11 +259,11 @@ jobs:
           release_tag="${{ steps.version.outputs.tag }}"
           if gh release view "$release_tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$release_tag" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
-            gh release edit "$release_tag" --notes-file RELEASE_NOTES_3.3.md --title "GAI AI 3.3.0" --repo "$GITHUB_REPOSITORY"
+            gh release edit "$release_tag" --notes-file RELEASE_NOTES_3.3.md --title "GAI AI ${GITHUB_REF_NAME#v}" --repo "$GITHUB_REPOSITORY"
           else
             gh release create "$release_tag" release-assets/* \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --notes-file RELEASE_NOTES_3.3.md \
-              --title "GAI AI 3.3.0"
+              --title "GAI AI ${GITHUB_REF_NAME#v}"
           fi

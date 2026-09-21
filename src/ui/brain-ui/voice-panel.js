@@ -1,7 +1,7 @@
 // voice-panel.js —— 语音面板编排层
 //
 // 组装共享会话引擎（voice-core）+ 两个模式策略（常开 voice-continuous / 按住空格 voice-ptt），
-// 暴露 initVoicePanel + window.bailongmaVoice（承重墙：app.js 的 TTS 打断与视频/音乐联动依赖它）。
+// 暴露 initVoicePanel + GAI voice bridge；legacy window.bailongmaVoice 只由 compat 层保留。
 //
 // 解耦结构：
 //   voice-core.js       共享机制——点云渲染 + 麦克风采集 + ASR 传输/转录 + 会话生命周期
@@ -15,6 +15,7 @@ import { createVoiceCore } from './voice-core.js';
 import { createContinuousPolicy } from './voice-continuous.js';
 import { createPttController } from './voice-ptt.js';
 import { createWakeFlow } from './voice-wake.js';
+import { getDesktopBridge, installVoiceBridge } from './legacy-compat.js';
 
 export function initVoicePanel({
   btnId, panelId, canvasId, statusId, transcriptId,
@@ -36,11 +37,11 @@ export function initVoicePanel({
     if (!core.micActive) {
       // startSession 内部已处理失败回退 + 状态同步
       const started = Boolean(await core.startSession());
-      if (started) (window.gai || window.bailongma)?.wake?.setConversationActive?.(true);
+      if (started) getDesktopBridge()?.wake?.setConversationActive?.(true);
       return started;
     }
     core.stopSession();
-    (window.gai || window.bailongma)?.wake?.setConversationActive?.(false);
+    getDesktopBridge()?.wake?.setConversationActive?.(false);
     return false;
   }
 
@@ -71,8 +72,8 @@ export function initVoicePanel({
     btn?.classList.toggle('active', core.micActive || core.userWantedMic);
   });
 
-  // ─── 承重墙：window.bailongmaVoice 接口契约（app.js 依赖，不可改形状） ───
-  window.bailongmaVoice = {
+  // ─── 承重墙：voice bridge 接口契约（app.js 依赖，不可改形状） ───
+  const voiceBridge = installVoiceBridge({
     isActive: () => core.micActive,
     // 视频/音乐模式：完全停止 mic（不需要打断能力）
     suspendForMedia: () => core.suspendForMedia(),
@@ -85,26 +86,26 @@ export function initVoicePanel({
     },
     stop: () => {
       core.stopSession();
-      (window.gai || window.bailongma)?.wake?.setConversationActive?.(false);
+      getDesktopBridge()?.wake?.setConversationActive?.(false);
     },
     setTTSAnalyser: (analyser) => core.setTTSAnalyser(analyser),
     pttStart: ptt.pttStart,
     pttEnd: ptt.pttEnd,
-  };
+  });
 
   window.addEventListener('bailongma:video-mode', (event) => {
     if (event.detail?.active) {
-      window.bailongmaVoice.suspendForMedia();
+      voiceBridge.suspendForMedia();
     } else {
-      window.bailongmaVoice.resumeAfterMedia();
+      voiceBridge.resumeAfterMedia();
     }
   });
 
   window.addEventListener('bailongma:music-mode', (event) => {
     if (event.detail?.active) {
-      window.bailongmaVoice.suspendForMedia();
+      voiceBridge.suspendForMedia();
     } else {
-      window.bailongmaVoice.resumeAfterMedia();
+      voiceBridge.resumeAfterMedia();
     }
   });
 

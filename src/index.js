@@ -1,4 +1,5 @@
 import './network-proxy.js'
+import { getCompatiblePortEnv, getStartupProgressReporter } from './compat/legacy-bailongma.js'
 import { config, getMinimaxKey as _getMinimaxKey, getSecurity } from './config.js'
 import { callLLM } from './llm.js'
 import { buildSystemPrompt, buildContextBlock, combinePromptForPreview } from './prompt.js'
@@ -70,7 +71,7 @@ import { buildStartupTaskBriefing, formatStartupTaskNotification } from './ui/br
 
 function reportStartupProgress(id, status, detail, message) {
   try {
-    const reporter = globalThis.gaiStartupProgress || globalThis.bailongmaStartupProgress
+    const reporter = getStartupProgressReporter()
     if (typeof reporter === 'function') reporter({ id, status, detail, message })
   } catch {}
 }
@@ -1786,7 +1787,7 @@ async function main() {
   }
 
   // Start HTTP API — must start regardless of activation status; the activation page depends on it
-  const apiPort = Number(process.env.GAI_PORT || process.env.BAILONGMA_PORT) || 3721
+  const apiPort = Number(getCompatiblePortEnv()) || 3721
   reportStartupProgress('api', 'running', `准备监听 127.0.0.1:${apiPort}`, '正在启动本地 API')
   startAPI(apiPort, {
     getStateSnapshot: () => ({

@@ -1,5 +1,6 @@
 import { API } from './api-client.js';
 import { applyUiLocale, currentUiLocale } from './ui-i18n.js';
+import { getDesktopBridge, readUiStorage, writeUiStorage } from './legacy-compat.js';
 
 const THEME_KEY = 'jarvis-brain-ui-theme';
 const SEARCH_HISTORY_KEY = 'gai-google-search-history';
@@ -147,6 +148,32 @@ export function createGaiControlMarkup() {
         <div class="gai-links"><a href="https://chatgpt.com" target="_blank" rel="noreferrer">OpenAI / ChatGPT ↗</a><a href="https://aistudio.google.com" target="_blank" rel="noreferrer">Google AI Studio ↗</a></div>
         <div class="gai-inline-feedback" id="gai-media-feedback"></div>
       </section>
+
+      <section class="gai-card gai-card-wide">
+        <div class="gai-card-heading-row">
+          <div>
+            <h3 ${t('Permission Center', '權限中心')}>Permission Center</h3>
+            <p ${t('Set a default policy for each capability domain. Deny is enforced immediately. Always Allow never bypasses GAI AI high-risk safety gates.', '為每個能力領域設定預設權限。拒絕會立即生效；「永遠允許」不會繞過 GAI AI 的高風險安全門檻。')}>Set a default policy for each capability domain. Deny is enforced immediately. Always Allow never bypasses GAI AI high-risk safety gates.</p>
+          </div>
+          <button type="button" id="gai-refresh-permissions" ${t('Refresh', '刷新')}>Refresh</button>
+        </div>
+        <div class="gai-permission-list" id="gai-permission-list"></div>
+        <div class="gai-permission-requests-heading" ${t('Pending approvals', '待確認權限')}>Pending approvals</div>
+        <div class="gai-permission-request-list" id="gai-permission-requests"></div>
+        <div class="gai-inline-feedback" id="gai-permission-feedback"></div>
+      </section>
+
+      <section class="gai-card gai-card-wide">
+        <div class="gai-card-heading-row">
+          <div>
+            <h3 ${t('Action Receipts', '操作收據')}>Action Receipts</h3>
+            <p ${t('A local audit trail of what GAI AI actually did, which capability it used and the result.', '本機操作稽核：顯示 GAI AI 實際做了什麼、使用哪個能力以及結果。')}>A local audit trail of what GAI AI actually did, which capability it used and the result.</p>
+          </div>
+          <button type="button" id="gai-refresh-receipts" ${t('Refresh', '刷新')}>Refresh</button>
+        </div>
+        <div class="gai-receipt-list" id="gai-action-receipts"></div>
+        <div class="gai-inline-feedback" id="gai-receipt-feedback"></div>
+      </section>
     </div>
   </div>`;
 }
@@ -175,7 +202,7 @@ async function json(path, options) {
 }
 
 export function initGaiControlCenter() {
-  const desktop = window.gai || window.bailongma;
+  const desktop = getDesktopBridge();
   const langSelect = document.getElementById('gai-language-select');
   const themeSelect = document.getElementById('gai-theme-select');
   const localStatus = document.getElementById('gai-local-ai-status');
@@ -385,7 +412,7 @@ export function initGaiControlCenter() {
     catch (error) { setFeedback('gai-search-feedback', error.message, true); }
   });
   document.getElementById('gai-save-voice')?.addEventListener('click', async () => {
-    try { await post('/settings/voice', { voiceProvider: voiceProvider.value }); localStorage.setItem('bailongma-voice-provider', voiceProvider.value); localStorage.setItem('bailongma-voice-lang', voiceLanguage.value); document.getElementById('voice-lang-select') && (document.getElementById('voice-lang-select').value = voiceLanguage.value); setFeedback('gai-voice-feedback', locale() === 'zh' ? '語音服務與中英馬多語設定已保存。' : 'Voice provider and Chinese + English + Malay recognition saved.'); }
+    try { await post('/settings/voice', { voiceProvider: voiceProvider.value }); writeUiStorage('voiceProvider', voiceProvider.value); writeUiStorage('voiceLanguage', voiceLanguage.value); document.getElementById('voice-lang-select') && (document.getElementById('voice-lang-select').value = voiceLanguage.value); setFeedback('gai-voice-feedback', locale() === 'zh' ? '語音服務與中英馬多語設定已保存。' : 'Voice provider and Chinese + English + Malay recognition saved.'); }
     catch (error) { setFeedback('gai-voice-feedback', error.message, true); }
   });
   document.getElementById('gai-request-mic')?.addEventListener('click', async () => {
@@ -476,6 +503,273 @@ export function initGaiControlCenter() {
     } catch (error) { setFeedback('gai-desktop-feedback', error.message, true); }
   });
 
+  async function refreshPermissions() {
+    const root = document.getElementById('gai-permission-list');
+    if (!root) return;
+    try {
+      const { permissions } = await json('/settings/permissions');
+      const grants = permissions?.grants || {};
+      const scopes = permissions?.scopes || { files: [] };
+      root.replaceChildren();
+
+      for (const domain of permissions?.domains || []) {
+        const row = document.createElement('div');
+        row.className = 'gai-permission-row';
+
+        const copy = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = domain.title || domain.id;
+        const description = document.createElement('span');
+        description.textContent = domain.description || '';
+        copy.append(title, description);
+
+        let scopeInput = null;
+        if (domain.id === 'files') {
+          const scopeEditor = document.createElement('div');
+          scopeEditor.className = 'gai-scope-editor';
+          scopeInput = document.createElement('input');
+          scopeInput.type = 'text';
+          scopeInput.placeholder = locale() === 'zh'
+            ? '允許資料夾路徑；多個請用 ; 分隔'
+            : 'Allowed folder paths; separate multiple folders with ;';
+          scopeInput.value = (scopes.files || []).join('; ');
+
+          const chooseFolders = document.createElement('button');
+          chooseFolders.type = 'button';
+          chooseFolders.className = 'gai-choose-folders';
+          chooseFolders.textContent = locale() === 'zh' ? '選擇資料夾…' : 'Choose folders…';
+          chooseFolders.hidden = !desktop?.files?.pickFolders;
+          chooseFolders.addEventListener('click', async () => {
+            chooseFolders.disabled = true;
+            try {
+              const result = await desktop.files.pickFolders();
+              if (!result?.ok) throw new Error(result?.error || 'Folder selection failed');
+              if (!result.canceled && result.paths?.length) {
+                const existing = String(scopeInput.value || '')
+                  .split(';')
+                  .map(value => value.trim())
+                  .filter(Boolean);
+                scopeInput.value = [...new Set([...existing, ...result.paths])].join('; ');
+              }
+            } catch (error) {
+              setFeedback('gai-permission-feedback', error.message, true);
+            } finally {
+              chooseFolders.disabled = false;
+            }
+          });
+
+          scopeEditor.append(scopeInput, chooseFolders);
+          copy.appendChild(scopeEditor);
+        }
+
+        const controls = document.createElement('div');
+        controls.className = 'gai-permission-controls';
+
+        const select = document.createElement('select');
+        select.dataset.domain = domain.id;
+        const choices = [
+          ['policy', locale() === 'zh' ? '跟隨安全策略' : 'Follow policy'],
+          ['ask', locale() === 'zh' ? '每次詢問' : 'Ask every time'],
+          ...(domain.id === 'files'
+            ? [['scope', locale() === 'zh' ? '只允許指定資料夾' : 'Selected folders only']]
+            : []),
+          ['always', locale() === 'zh' ? '永遠允許*' : 'Always allow*'],
+          ['deny', locale() === 'zh' ? '拒絕' : 'Deny'],
+        ];
+        for (const [value, label] of choices) {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = label;
+          select.appendChild(option);
+        }
+        select.value = grants[domain.id] || 'policy';
+
+        const parseFileScopes = () => String(scopeInput?.value || '')
+          .split(';')
+          .map(value => value.trim())
+          .filter(Boolean);
+
+        const save = async () => {
+          const fileScopes = domain.id === 'files' ? parseFileScopes() : undefined;
+          if (domain.id === 'files' && select.value === 'scope' && !fileScopes.length) {
+            throw new Error(locale() === 'zh' ? '請先輸入至少一個允許資料夾。' : 'Enter at least one allowed folder first.');
+          }
+          await post('/settings/permissions', {
+            domain: domain.id,
+            mode: select.value,
+            ...(domain.id === 'files' ? { scopes: fileScopes } : {}),
+          });
+        };
+
+        select.addEventListener('change', async () => {
+          select.disabled = true;
+          try {
+            await save();
+            setFeedback('gai-permission-feedback', locale() === 'zh' ? '權限已保存並立即套用。' : 'Permission saved and applied.');
+          } catch (error) {
+            setFeedback('gai-permission-feedback', error.message, true);
+            await refreshPermissions();
+          } finally {
+            select.disabled = false;
+          }
+        });
+
+        if (domain.id === 'files') {
+          const saveScope = document.createElement('button');
+          saveScope.type = 'button';
+          saveScope.className = 'gai-save-scope';
+          saveScope.textContent = locale() === 'zh' ? '保存資料夾' : 'Save folders';
+          saveScope.addEventListener('click', async () => {
+            saveScope.disabled = true;
+            try {
+              await save();
+              setFeedback('gai-permission-feedback', locale() === 'zh' ? '資料夾範圍已保存。' : 'Folder scope saved.');
+              await refreshPermissions();
+            } catch (error) {
+              setFeedback('gai-permission-feedback', error.message, true);
+            } finally {
+              saveScope.disabled = false;
+            }
+          });
+          controls.append(select, saveScope);
+        } else {
+          controls.appendChild(select);
+        }
+
+        row.append(copy, controls);
+        root.appendChild(row);
+      }
+    } catch (error) {
+      setFeedback('gai-permission-feedback', error.message, true);
+    }
+  }
+
+  async function refreshPermissionRequests() {
+    const root = document.getElementById('gai-permission-requests');
+    if (!root) return;
+    try {
+      const { requests = [] } = await json('/settings/permission-requests');
+      root.replaceChildren();
+
+      if (!requests.length) {
+        const empty = document.createElement('span');
+        empty.className = 'gai-empty-state';
+        empty.textContent = locale() === 'zh' ? '目前沒有待確認操作。' : 'No pending approvals.';
+        root.appendChild(empty);
+        return;
+      }
+
+      for (const request of requests) {
+        const row = document.createElement('div');
+        row.className = 'gai-permission-request';
+
+        const copy = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = request.summary || request.tool || 'Action';
+        const meta = document.createElement('span');
+        const expires = request.expires_at ? new Date(request.expires_at).toLocaleTimeString() : '';
+        meta.textContent = `${request.domain || 'other'} · ${request.risk || 'medium'} · ${locale() === 'zh' ? '到期' : 'expires'} ${expires}`;
+        copy.append(title, meta);
+
+        const actions = document.createElement('div');
+        actions.className = 'gai-permission-request-actions';
+
+        const allow = document.createElement('button');
+        allow.type = 'button';
+        allow.className = 'allow';
+        allow.textContent = locale() === 'zh' ? '允許一次' : 'Allow once';
+
+        const deny = document.createElement('button');
+        deny.type = 'button';
+        deny.className = 'deny';
+        deny.textContent = locale() === 'zh' ? '拒絕' : 'Deny';
+
+        const decide = async decision => {
+          allow.disabled = true;
+          deny.disabled = true;
+          try {
+            await post('/settings/permission-requests', { id: request.id, decision });
+            setFeedback(
+              'gai-permission-feedback',
+              decision === 'allow_once'
+                ? (locale() === 'zh' ? '已允許本次操作。' : 'Allowed for this action only.')
+                : (locale() === 'zh' ? '已拒絕本次操作。' : 'Action denied.')
+            );
+            await Promise.allSettled([refreshPermissionRequests(), refreshActionReceipts()]);
+          } catch (error) {
+            setFeedback('gai-permission-feedback', error.message, true);
+          } finally {
+            allow.disabled = false;
+            deny.disabled = false;
+          }
+        };
+
+        allow.addEventListener('click', () => decide('allow_once'));
+        deny.addEventListener('click', () => decide('deny'));
+        actions.append(allow, deny);
+        row.append(copy, actions);
+        root.appendChild(row);
+      }
+    } catch (error) {
+      setFeedback('gai-permission-feedback', error.message, true);
+    }
+  }
+
+  async function refreshActionReceipts() {
+    const root = document.getElementById('gai-action-receipts');
+    if (!root) return;
+    try {
+      const { receipts = [] } = await json('/settings/action-receipts?limit=12');
+      root.replaceChildren();
+      if (!receipts.length) {
+        const empty = document.createElement('span');
+        empty.textContent = locale() === 'zh' ? '目前沒有操作收據。' : 'No action receipts yet.';
+        root.appendChild(empty);
+        return;
+      }
+
+      for (const receipt of receipts) {
+        const row = document.createElement('div');
+        row.className = `gai-receipt gai-receipt-${receipt.status || 'ok'}`;
+
+        const top = document.createElement('div');
+        top.className = 'gai-receipt-top';
+        const summary = document.createElement('strong');
+        summary.textContent = receipt.summary || receipt.tool || 'Action';
+        const meta = document.createElement('span');
+        const when = receipt.timestamp ? new Date(receipt.timestamp).toLocaleString() : '';
+        meta.textContent = `${when} · ${receipt.permission?.domain || 'other'} · ${receipt.risk || 'medium'}`;
+        top.append(summary, meta);
+
+        const detail = document.createElement('div');
+        detail.className = 'gai-receipt-detail';
+        const affected = receipt.affected_resources?.[0]?.label || '';
+        const outcome = receipt.error || receipt.result_preview || (locale() === 'zh' ? '已完成' : 'Completed');
+        detail.textContent = affected ? `${affected} · ${outcome}` : outcome;
+
+        const undo = document.createElement('div');
+        undo.className = 'gai-receipt-undo';
+        if (receipt.reversible?.kind === 'read_only') {
+          undo.textContent = locale() === 'zh' ? '唯讀操作 · 不需要復原' : 'Read-only · no undo needed';
+        } else if (receipt.reversible?.available) {
+          undo.textContent = locale() === 'zh' ? '可安全復原' : 'Verified undo available';
+        } else {
+          undo.textContent = locale() === 'zh' ? '未捕捉可靠的復原狀態' : 'Verified undo not available';
+        }
+
+        row.append(top, detail, undo);
+        root.appendChild(row);
+      }
+    } catch (error) {
+      setFeedback('gai-receipt-feedback', error.message, true);
+    }
+  }
+
+  document.getElementById('gai-refresh-permissions')?.addEventListener('click', async () => {
+    await Promise.allSettled([refreshPermissions(), refreshPermissionRequests()]);
+  });
+  document.getElementById('gai-refresh-receipts')?.addEventListener('click', refreshActionReceipts);
+
   async function refreshReminders() {
     const root = document.getElementById('gai-reminder-list');
     if (!root) return;
@@ -539,7 +833,7 @@ export function initGaiControlCenter() {
   Promise.allSettled([
     json('/settings/map').then(({ map }) => { mapProvider.value = ['osm', 'google'].includes(map?.provider) ? map.provider : 'osm'; syncMapFields(); }),
     json('/settings/web-search').then(({ webSearch }) => { searchProvider.value = webSearch?.preferredEngine || 'auto'; }),
-    json('/settings/voice').then(() => { voiceProvider.value = 'local'; voiceLanguage.value = localStorage.getItem('bailongma-voice-lang') || 'multilingual'; }),
+    json('/settings/voice').then(() => { voiceProvider.value = 'local'; voiceLanguage.value = readUiStorage('voiceLanguage', 'multilingual'); }),
     json('/settings/media-provider').then(({ media }) => {
       mediaProvider.value = ['local', 'stable-diffusion', 'gemini', 'openai-compatible'].includes(media?.provider) ? media.provider : 'local';
       document.getElementById('gai-media-baseurl').value = media?.openaiBaseURL || 'https://api.openai.com/v1';
@@ -552,11 +846,15 @@ export function initGaiControlCenter() {
     }),
   ]).catch(() => {});
   syncMediaFields();
-  voiceLanguage.value = localStorage.getItem('bailongma-voice-lang') || 'multilingual';
+  voiceLanguage.value = readUiStorage('voiceLanguage', 'multilingual');
   desktop?.preferences?.get?.().then(syncDesktopStatus).catch(() => syncDesktopStatus({ wakeEnabled: false }));
   desktop?.wake?.onStatus?.((payload) => status(wakeStatus, payload?.enabled === false ? 'off' : payload?.ready ? 'listening' : payload?.state || 'starting', payload?.ready ? 'ok' : ''));
   desktop?.onUpdaterStatus?.((payload) => status(updateStatus, payload?.stage || 'automatic', payload?.stage === 'downloaded' || payload?.stage === 'up-to-date' ? 'ok' : ''));
   refreshReminders();
+  refreshPermissions();
+  refreshPermissionRequests();
+  setInterval(refreshPermissionRequests, 1500);
+  refreshActionReceipts();
   refreshDevices();
   detectLocalAI();
   refreshCodex();
