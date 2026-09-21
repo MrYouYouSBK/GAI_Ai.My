@@ -4797,3 +4797,25 @@ body.typhoon-mode .console > #voice-panel .voice-transcript { flex: 1; max-width
 @media (max-width: 760px) {
   .gai-permission-controls { align-items: stretch; flex-direction: column; }
 }
+
+
+.gai-scope-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+.gai-choose-folders {
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--bg0);
+  color: var(--cool);
+  cursor: pointer;
+  font: 600 8px/1 "JetBrains Mono", ui-monospace, monospace;
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .gai-scope-editor { grid-template-columns: 1fr; }
+}
