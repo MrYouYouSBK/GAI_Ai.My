@@ -657,9 +657,21 @@ export function initGaiControlCenter() {
 
         const detail = document.createElement('div');
         detail.className = 'gai-receipt-detail';
-        detail.textContent = receipt.error || receipt.result_preview || (locale() === 'zh' ? '已完成' : 'Completed');
+        const affected = receipt.affected_resources?.[0]?.label || '';
+        const outcome = receipt.error || receipt.result_preview || (locale() === 'zh' ? '已完成' : 'Completed');
+        detail.textContent = affected ? `${affected} · ${outcome}` : outcome;
 
-        row.append(top, detail);
+        const undo = document.createElement('div');
+        undo.className = 'gai-receipt-undo';
+        if (receipt.reversible?.kind === 'read_only') {
+          undo.textContent = locale() === 'zh' ? '唯讀操作 · 不需要復原' : 'Read-only · no undo needed';
+        } else if (receipt.reversible?.available) {
+          undo.textContent = locale() === 'zh' ? '可安全復原' : 'Verified undo available';
+        } else {
+          undo.textContent = locale() === 'zh' ? '未捕捉可靠的復原狀態' : 'Verified undo not available';
+        }
+
+        row.append(top, detail, undo);
         root.appendChild(row);
       }
     } catch (error) {
