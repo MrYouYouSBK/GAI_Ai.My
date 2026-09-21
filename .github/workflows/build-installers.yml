@@ -53,7 +53,9 @@ jobs:
       - name: Syntax-check Project S trust surfaces
         run: |
           node --check src/capabilities/permission-center.js
+          node --check src/capabilities/permission-requests.js
           node --check src/capabilities/action-receipt.js
+          node --check scripts/security-audit-report.mjs
           node --check src/capabilities/tool-audit.js
           node --check src/api/routes/settings.js
           node --check src/ui/brain-ui/gai-control-center.js
