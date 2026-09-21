@@ -42,6 +42,10 @@ import { getMediaProviderRuntimeConfig, getMediaProviderSettings, setMediaProvid
 import { calculateNextDueAt } from '../../capabilities/tools/reminders.js'
 import { getPermissionCatalog } from '../../capabilities/permission-center.js'
 import { actionReceiptFromLog } from '../../capabilities/action-receipt.js'
+import {
+  listPendingPermissionRequests,
+  resolvePermissionRequest,
+} from '../../capabilities/permission-requests.js'
 
 function checkLocalOrToken(req, res, url, requireLocalOrToken) {
   if (typeof requireLocalOrToken === 'function') return requireLocalOrToken(req, res, url)
@@ -90,6 +94,31 @@ export async function handleSettingsRoutes(req, res, url, { requireLocalOrToken,
           grants: security.permissionGrants || {},
         },
       })
+    } catch (err) {
+      jsonResponse(res, 400, { ok: false, error: err.message })
+    }
+    return true
+  }
+
+  if (req.method === 'GET' && url.pathname === '/settings/permission-requests') {
+    if (!hasAllowedAccess?.(req, url)) {
+      jsonResponse(res, 403, { ok: false, error: 'forbidden' })
+      return true
+    }
+    jsonResponse(res, 200, {
+      ok: true,
+      requests: listPendingPermissionRequests(),
+    })
+    return true
+  }
+
+  if (req.method === 'POST' && url.pathname === '/settings/permission-requests') {
+    if (!checkLocalOrToken(req, res, url, requireLocalOrToken)) return true
+    try {
+      const body = await readJsonBody(req)
+      const result = resolvePermissionRequest(body.id, body.decision)
+      if (!result.ok) throw new Error(result.error)
+      jsonResponse(res, 200, result)
     } catch (err) {
       jsonResponse(res, 400, { ok: false, error: err.message })
     }
