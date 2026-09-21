@@ -111,22 +111,38 @@ export function isDangerousShellCommand(command) {
 export function evaluateToolPolicy(name, args = {}, context = {}) {
   const risk = classifyTool(name)
   const blockedTools = config.security?.blockedTools || []
-  if (blockedTools.includes(name)) {
-    return { allowed: false, risk, reason: `工具 "${name}" 已被安全策略禁用` }
-  }
-
   const permissionDomain = permissionDomainForTool(name)
   const domainMode = config.security?.permissionGrants?.[permissionDomain] || 'policy'
+
+  if (blockedTools.includes(name)) {
+    return {
+      allowed: false,
+      risk,
+      reason: `工具 "${name}" 已被安全策略禁用`,
+      permissionDomain,
+      permissionMode: domainMode,
+    }
+  }
   if (domainMode === 'deny') {
     return {
       allowed: false,
       risk,
       reason: `permission domain "${permissionDomain}" is denied by the user`,
+      permissionDomain,
+      permissionMode: domainMode,
     }
   }
   if (['exec_command', 'exec_quick_command', 'exec_task_command', 'exec_background_command'].includes(name)) {
     const reasons = isDangerousShellCommand(args.command || args.cmd || '')
-    if (reasons.length) return { allowed: false, risk, reason: reasons.join('; ') }
+    if (reasons.length) {
+      return {
+        allowed: false,
+        risk,
+        reason: reasons.join('; '),
+        permissionDomain,
+        permissionMode: domainMode,
+      }
+    }
   }
   if (
     context.autonomous
@@ -134,10 +150,29 @@ export function evaluateToolPolicy(name, args = {}, context = {}) {
     && String(args.action || 'list').trim().toLowerCase() !== 'list'
     && !context.allowHighRiskAutonomy
   ) {
-    return { allowed: false, risk, reason: 'autonomous Tick may inspect rules, but changing persistent rules requires an explicit user-driven context' }
+    return {
+      allowed: false,
+      risk,
+      reason: 'autonomous Tick may inspect rules, but changing persistent rules requires an explicit user-driven context',
+      permissionDomain,
+      permissionMode: domainMode,
+    }
   }
   if (context.autonomous && AUTONOMOUS_USER_AUTH_REQUIRED.has(name) && !context.allowHighRiskAutonomy) {
-    return { allowed: false, risk, reason: 'this authority-changing, destructive, or unbudgeted tool requires an explicit user-driven context' }
+    return {
+      allowed: false,
+      risk,
+      reason: 'this authority-changing, destructive, or unbudgeted tool requires an explicit user-driven context',
+      permissionDomain,
+      permissionMode: domainMode,
+    }
   }
-  return { allowed: true, risk, reason: '' }
+  return {
+    allowed: true,
+    risk,
+    reason: '',
+    permissionDomain,
+    permissionMode: domainMode,
+    requiresConfirmation: domainMode === 'ask',
+  }
 }
