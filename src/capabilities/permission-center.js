@@ -1,3 +1,6 @@
+import path from 'path'
+import { SANDBOX_ROOT, isPathInside, normalizeSandboxPath } from './sandbox.js'
+
 export const PERMISSION_DOMAINS = Object.freeze({
   files: {
     id: 'files',
@@ -132,6 +135,46 @@ const TOOL_DOMAIN = Object.freeze({
 
 export function permissionDomainForTool(name = '') {
   return TOOL_DOMAIN[String(name || '').trim()] || 'other'
+}
+
+export function permissionResourceForTool(name = '', args = {}) {
+  const tool = String(name || '').trim()
+  if (!['read_file', 'list_dir', 'write_file', 'delete_file', 'make_dir', 'download_file'].includes(tool)) {
+    return null
+  }
+
+  const raw = args.path || args.filename || args.file_path || args.dir || args.directory || args.destination || args.output
+  if (!raw) return null
+
+  const normalized = normalizeSandboxPath(String(raw))
+  return {
+    type: tool === 'list_dir' || tool === 'make_dir' ? 'directory' : 'file',
+    path: path.resolve(SANDBOX_ROOT, normalized),
+  }
+}
+
+export function evaluatePermissionScope(name = '', args = {}, permissionScopes = {}) {
+  const domain = permissionDomainForTool(name)
+  if (domain !== 'files') {
+    return { supported: false, allowed: false, domain, resource: null }
+  }
+
+  const resource = permissionResourceForTool(name, args)
+  if (!resource) {
+    return { supported: true, allowed: false, domain, resource: null }
+  }
+
+  const scopes = Array.isArray(permissionScopes?.files)
+    ? permissionScopes.files.map(value => path.resolve(String(value))).filter(Boolean)
+    : []
+
+  return {
+    supported: true,
+    allowed: scopes.some(scope => isPathInside(scope, resource.path)),
+    domain,
+    resource,
+    scopes,
+  }
 }
 
 export function defaultPermissionModeFor({ tool = '', risk = 'medium' } = {}) {
