@@ -1059,6 +1059,7 @@ export const config = {
     execSandbox: true,
     blockedTools: [],
     permissionGrants: {},
+    permissionScopes: { files: [] },
     updatedAt: null,
   },
   network: {
@@ -1089,11 +1090,18 @@ if (parsedConfig) {
     if (typeof s.execSandbox === 'boolean') config.security.execSandbox = s.execSandbox
     if (Array.isArray(s.blockedTools)) config.security.blockedTools = s.blockedTools
     if (s.permissionGrants && typeof s.permissionGrants === 'object' && !Array.isArray(s.permissionGrants)) {
-      const allowedModes = new Set(['policy', 'ask', 'always', 'deny'])
+      const allowedModes = new Set(['policy', 'ask', 'scope', 'always', 'deny'])
       config.security.permissionGrants = Object.fromEntries(
         Object.entries(s.permissionGrants)
           .filter(([domain, mode]) => typeof domain === 'string' && allowedModes.has(mode))
       )
+    }
+    if (s.permissionScopes && typeof s.permissionScopes === 'object' && !Array.isArray(s.permissionScopes)) {
+      config.security.permissionScopes = {
+        files: Array.isArray(s.permissionScopes.files)
+          ? s.permissionScopes.files.filter(value => typeof value === 'string' && value.trim()).map(value => path.resolve(value))
+          : [],
+      }
     }
     if (typeof s.updatedAt === 'string') config.security.updatedAt = s.updatedAt
   }
@@ -1528,6 +1536,9 @@ export function getSecurity() {
     execSandbox: config.security.execSandbox,
     blockedTools: [...config.security.blockedTools],
     permissionGrants: { ...(config.security.permissionGrants || {}) },
+    permissionScopes: {
+      files: [...(config.security.permissionScopes?.files || [])],
+    },
     updatedAt: config.security.updatedAt || null,
   }
 }
@@ -1540,16 +1551,26 @@ export function setSecurity(updates) {
     config.security.blockedTools = updates.blockedTools.filter(t => typeof t === 'string')
   }
   if (updates.permissionGrants && typeof updates.permissionGrants === 'object' && !Array.isArray(updates.permissionGrants)) {
-    const allowedModes = new Set(['policy', 'ask', 'always', 'deny'])
+    const allowedModes = new Set(['policy', 'ask', 'scope', 'always', 'deny'])
     config.security.permissionGrants = Object.fromEntries(
       Object.entries(updates.permissionGrants)
         .filter(([domain, mode]) => typeof domain === 'string' && allowedModes.has(mode))
     )
   }
+  if (updates.permissionScopes && typeof updates.permissionScopes === 'object' && !Array.isArray(updates.permissionScopes)) {
+    config.security.permissionScopes = {
+      files: Array.isArray(updates.permissionScopes.files)
+        ? [...new Set(updates.permissionScopes.files
+            .filter(value => typeof value === 'string' && value.trim())
+            .map(value => path.resolve(value.trim())))]
+        : [],
+    }
+  }
   const changed = before.fileSandbox !== config.security.fileSandbox
     || before.execSandbox !== config.security.execSandbox
     || JSON.stringify(before.blockedTools) !== JSON.stringify(config.security.blockedTools)
     || JSON.stringify(before.permissionGrants) !== JSON.stringify(config.security.permissionGrants)
+    || JSON.stringify(before.permissionScopes) !== JSON.stringify(config.security.permissionScopes)
   if (changed) config.security.updatedAt = nowTimestamp()
   patchConfig({ security: { ...config.security } })
   return getSecurity()
