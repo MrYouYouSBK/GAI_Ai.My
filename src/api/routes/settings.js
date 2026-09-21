@@ -64,6 +64,7 @@ export async function handleSettingsRoutes(req, res, url, { requireLocalOrToken,
       permissions: {
         ...getPermissionCatalog(),
         grants: getSecurity().permissionGrants || {},
+        scopes: getSecurity().permissionScopes || { files: [] },
       },
     })
     return true
@@ -77,21 +78,33 @@ export async function handleSettingsRoutes(req, res, url, { requireLocalOrToken,
       const mode = String(body.mode || '').trim().toLowerCase()
       const catalog = getPermissionCatalog()
       const validDomains = new Set(catalog.domains.map(item => item.id))
-      const persistentModes = new Set(['policy', 'ask', 'always', 'deny'])
+      const persistentModes = new Set(['policy', 'ask', 'scope', 'always', 'deny'])
       if (!validDomains.has(domain)) throw new Error('Unknown permission domain')
-      if (!persistentModes.has(mode)) throw new Error('Persistent permission mode must be policy, ask, always or deny')
+      if (!persistentModes.has(mode)) throw new Error('Persistent permission mode must be policy, ask, scope, always or deny')
+      if (mode === 'scope' && domain !== 'files') throw new Error('Selected scope is currently supported for the Files domain only')
 
       const current = getSecurity()
       const grants = { ...(current.permissionGrants || {}) }
       if (mode === 'policy') delete grants[domain]
       else grants[domain] = mode
 
-      const security = setSecurity({ permissionGrants: grants })
+      const permissionScopes = {
+        files: [...(current.permissionScopes?.files || [])],
+      }
+      if (domain === 'files' && Array.isArray(body.scopes)) {
+        permissionScopes.files = body.scopes
+      }
+      if (mode === 'scope' && permissionScopes.files.length === 0) {
+        throw new Error('At least one folder is required for Files scope mode')
+      }
+
+      const security = setSecurity({ permissionGrants: grants, permissionScopes })
       jsonResponse(res, 200, {
         ok: true,
         permissions: {
           ...catalog,
           grants: security.permissionGrants || {},
+          scopes: security.permissionScopes || { files: [] },
         },
       })
     } catch (err) {
