@@ -72,6 +72,7 @@ jobs:
           node --check src/ui/brain-ui/legacy-compat.js
           node --check src/compat/legacy-bailongma.js
           node --check electron/legacy-compat.cjs
+          node --check electron/preload.cjs
           node --check electron/main.cjs
 
       - name: Verify GAI AI 3.3 runtime
