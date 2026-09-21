@@ -6,6 +6,11 @@ import {
 } from './capabilities/permission-center.js'
 import { actionReceiptFromLog, buildActionReceipt } from './capabilities/action-receipt.js'
 import {
+  listPendingPermissionRequests,
+  requestToolPermission,
+  resolvePermissionRequest,
+} from './capabilities/permission-requests.js'
+import {
   getCompatiblePortEnv,
   getCompatibleResourcesDirEnv,
   getCompatibleUserDirEnv,
@@ -137,5 +142,33 @@ installVoiceBridge(voiceApi, scope)
 assert.equal(scope.gaiVoice, voiceApi)
 assert.equal(scope.bailongmaVoice, voiceApi)
 assert.equal(getVoiceBridge(scope), voiceApi)
+
+// Ask Every Time broker pauses until a one-time decision arrives.
+const approvalPromise = requestToolPermission({
+  tool: 'write_file',
+  args: { path: 'example.txt', content: 'hello' },
+  policy: { risk: 'medium', permissionDomain: 'files' },
+  context: { source: 'test' },
+  timeoutMs: 5_000,
+})
+const pendingApproval = listPendingPermissionRequests().find(item => item.tool === 'write_file')
+assert.ok(pendingApproval)
+assert.equal(pendingApproval.domain, 'files')
+assert.equal(resolvePermissionRequest(pendingApproval.id, 'allow_once').ok, true)
+const approval = await approvalPromise
+assert.equal(approval.decision, 'allow_once')
+assert.equal(listPendingPermissionRequests().some(item => item.id === pendingApproval.id), false)
+
+const denyPromise = requestToolPermission({
+  tool: 'delete_file',
+  args: { path: 'example.txt' },
+  policy: { risk: 'high', permissionDomain: 'files' },
+  context: { source: 'test' },
+  timeoutMs: 5_000,
+})
+const pendingDeny = listPendingPermissionRequests().find(item => item.tool === 'delete_file')
+assert.ok(pendingDeny)
+assert.equal(resolvePermissionRequest(pendingDeny.id, 'deny').ok, true)
+assert.equal((await denyPromise).decision, 'deny')
 
 console.log('test-project-s-trust passed')
