@@ -509,6 +509,7 @@ export function initGaiControlCenter() {
     try {
       const { permissions } = await json('/settings/permissions');
       const grants = permissions?.grants || {};
+      const scopes = permissions?.scopes || { files: [] };
       root.replaceChildren();
 
       for (const domain of permissions?.domains || []) {
@@ -522,11 +523,31 @@ export function initGaiControlCenter() {
         description.textContent = domain.description || '';
         copy.append(title, description);
 
+        let scopeInput = null;
+        if (domain.id === 'files') {
+          const scopeEditor = document.createElement('div');
+          scopeEditor.className = 'gai-scope-editor';
+          scopeInput = document.createElement('input');
+          scopeInput.type = 'text';
+          scopeInput.placeholder = locale() === 'zh'
+            ? '允許資料夾路徑；多個請用 ; 分隔'
+            : 'Allowed folder paths; separate multiple folders with ;';
+          scopeInput.value = (scopes.files || []).join('; ');
+          scopeEditor.appendChild(scopeInput);
+          copy.appendChild(scopeEditor);
+        }
+
+        const controls = document.createElement('div');
+        controls.className = 'gai-permission-controls';
+
         const select = document.createElement('select');
         select.dataset.domain = domain.id;
         const choices = [
           ['policy', locale() === 'zh' ? '跟隨安全策略' : 'Follow policy'],
           ['ask', locale() === 'zh' ? '每次詢問' : 'Ask every time'],
+          ...(domain.id === 'files'
+            ? [['scope', locale() === 'zh' ? '只允許指定資料夾' : 'Selected folders only']]
+            : []),
           ['always', locale() === 'zh' ? '永遠允許*' : 'Always allow*'],
           ['deny', locale() === 'zh' ? '拒絕' : 'Deny'],
         ];
@@ -537,10 +558,28 @@ export function initGaiControlCenter() {
           select.appendChild(option);
         }
         select.value = grants[domain.id] || 'policy';
+
+        const parseFileScopes = () => String(scopeInput?.value || '')
+          .split(';')
+          .map(value => value.trim())
+          .filter(Boolean);
+
+        const save = async () => {
+          const fileScopes = domain.id === 'files' ? parseFileScopes() : undefined;
+          if (domain.id === 'files' && select.value === 'scope' && !fileScopes.length) {
+            throw new Error(locale() === 'zh' ? '請先輸入至少一個允許資料夾。' : 'Enter at least one allowed folder first.');
+          }
+          await post('/settings/permissions', {
+            domain: domain.id,
+            mode: select.value,
+            ...(domain.id === 'files' ? { scopes: fileScopes } : {}),
+          });
+        };
+
         select.addEventListener('change', async () => {
           select.disabled = true;
           try {
-            await post('/settings/permissions', { domain: domain.id, mode: select.value });
+            await save();
             setFeedback('gai-permission-feedback', locale() === 'zh' ? '權限已保存並立即套用。' : 'Permission saved and applied.');
           } catch (error) {
             setFeedback('gai-permission-feedback', error.message, true);
@@ -550,7 +589,29 @@ export function initGaiControlCenter() {
           }
         });
 
-        row.append(copy, select);
+        if (domain.id === 'files') {
+          const saveScope = document.createElement('button');
+          saveScope.type = 'button';
+          saveScope.className = 'gai-save-scope';
+          saveScope.textContent = locale() === 'zh' ? '保存資料夾' : 'Save folders';
+          saveScope.addEventListener('click', async () => {
+            saveScope.disabled = true;
+            try {
+              await save();
+              setFeedback('gai-permission-feedback', locale() === 'zh' ? '資料夾範圍已保存。' : 'Folder scope saved.');
+              await refreshPermissions();
+            } catch (error) {
+              setFeedback('gai-permission-feedback', error.message, true);
+            } finally {
+              saveScope.disabled = false;
+            }
+          });
+          controls.append(select, saveScope);
+        } else {
+          controls.appendChild(select);
+        }
+
+        row.append(copy, controls);
         root.appendChild(row);
       }
     } catch (error) {
