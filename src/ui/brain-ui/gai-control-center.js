@@ -158,6 +158,8 @@ export function createGaiControlMarkup() {
           <button type="button" id="gai-refresh-permissions" ${t('Refresh', '刷新')}>Refresh</button>
         </div>
         <div class="gai-permission-list" id="gai-permission-list"></div>
+        <div class="gai-permission-requests-heading" ${t('Pending approvals', '待確認權限')}>Pending approvals</div>
+        <div class="gai-permission-request-list" id="gai-permission-requests"></div>
         <div class="gai-inline-feedback" id="gai-permission-feedback"></div>
       </section>
 
@@ -556,6 +558,77 @@ export function initGaiControlCenter() {
     }
   }
 
+  async function refreshPermissionRequests() {
+    const root = document.getElementById('gai-permission-requests');
+    if (!root) return;
+    try {
+      const { requests = [] } = await json('/settings/permission-requests');
+      root.replaceChildren();
+
+      if (!requests.length) {
+        const empty = document.createElement('span');
+        empty.className = 'gai-empty-state';
+        empty.textContent = locale() === 'zh' ? '目前沒有待確認操作。' : 'No pending approvals.';
+        root.appendChild(empty);
+        return;
+      }
+
+      for (const request of requests) {
+        const row = document.createElement('div');
+        row.className = 'gai-permission-request';
+
+        const copy = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = request.summary || request.tool || 'Action';
+        const meta = document.createElement('span');
+        const expires = request.expires_at ? new Date(request.expires_at).toLocaleTimeString() : '';
+        meta.textContent = `${request.domain || 'other'} · ${request.risk || 'medium'} · ${locale() === 'zh' ? '到期' : 'expires'} ${expires}`;
+        copy.append(title, meta);
+
+        const actions = document.createElement('div');
+        actions.className = 'gai-permission-request-actions';
+
+        const allow = document.createElement('button');
+        allow.type = 'button';
+        allow.className = 'allow';
+        allow.textContent = locale() === 'zh' ? '允許一次' : 'Allow once';
+
+        const deny = document.createElement('button');
+        deny.type = 'button';
+        deny.className = 'deny';
+        deny.textContent = locale() === 'zh' ? '拒絕' : 'Deny';
+
+        const decide = async decision => {
+          allow.disabled = true;
+          deny.disabled = true;
+          try {
+            await post('/settings/permission-requests', { id: request.id, decision });
+            setFeedback(
+              'gai-permission-feedback',
+              decision === 'allow_once'
+                ? (locale() === 'zh' ? '已允許本次操作。' : 'Allowed for this action only.')
+                : (locale() === 'zh' ? '已拒絕本次操作。' : 'Action denied.')
+            );
+            await Promise.allSettled([refreshPermissionRequests(), refreshActionReceipts()]);
+          } catch (error) {
+            setFeedback('gai-permission-feedback', error.message, true);
+          } finally {
+            allow.disabled = false;
+            deny.disabled = false;
+          }
+        };
+
+        allow.addEventListener('click', () => decide('allow_once'));
+        deny.addEventListener('click', () => decide('deny'));
+        actions.append(allow, deny);
+        row.append(copy, actions);
+        root.appendChild(row);
+      }
+    } catch (error) {
+      setFeedback('gai-permission-feedback', error.message, true);
+    }
+  }
+
   async function refreshActionReceipts() {
     const root = document.getElementById('gai-action-receipts');
     if (!root) return;
@@ -594,7 +667,9 @@ export function initGaiControlCenter() {
     }
   }
 
-  document.getElementById('gai-refresh-permissions')?.addEventListener('click', refreshPermissions);
+  document.getElementById('gai-refresh-permissions')?.addEventListener('click', async () => {
+    await Promise.allSettled([refreshPermissions(), refreshPermissionRequests()]);
+  });
   document.getElementById('gai-refresh-receipts')?.addEventListener('click', refreshActionReceipts);
 
   async function refreshReminders() {
@@ -679,6 +754,8 @@ export function initGaiControlCenter() {
   desktop?.onUpdaterStatus?.((payload) => status(updateStatus, payload?.stage || 'automatic', payload?.stage === 'downloaded' || payload?.stage === 'up-to-date' ? 'ok' : ''));
   refreshReminders();
   refreshPermissions();
+  refreshPermissionRequests();
+  setInterval(refreshPermissionRequests, 1500);
   refreshActionReceipts();
   refreshDevices();
   detectLocalAI();
